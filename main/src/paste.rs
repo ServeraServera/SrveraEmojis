@@ -1,9 +1,12 @@
 //! Pasting: put the text on the clipboard + primary selection through
 //! ext-data-control, then press Shift+Insert (or Ctrl+V) on a virtual uinput keyboard.
+//! Picks are marked secret so clipboard history skips them, and afterwards the
+//! text that was on the clipboard before is put back.
 
 use crate::app::App;
-use std::io::Write;
-use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+use std::io::{Read, Write};
+use std::os::fd::{AsFd, AsRawFd, FromRawFd, OwnedFd};
+use std::sync::Arc;
 use wayland_client::{event_created_child, Connection, Dispatch, Proxy, QueueHandle};
 use wayland_protocols::ext::data_control::v1::client::{
     ext_data_control_device_v1::{self, ExtDataControlDeviceV1},
@@ -13,6 +16,8 @@ use wayland_protocols::ext::data_control::v1::client::{
 };
 
 const MIMES: &[&str] = &["text/plain;charset=utf-8", "text/plain", "UTF8_STRING", "STRING", "TEXT"];
+/// Klipper (and other clipboard managers) don't record entries offering this as "secret".
+const HINT: &str = "x-kde-passwordManagerHint";
 
 // ---------------------------------------------------------------- clipboard
 
@@ -20,9 +25,10 @@ const MIMES: &[&str] = &["text/plain;charset=utf-8", "text/plain", "UTF8_STRING"
 pub struct Clipboard {
     pub manager: Option<ExtDataControlManagerV1>,
     pub device: Option<ExtDataControlDeviceV1>,
-    text: String,
     sel_offer: Option<ExtDataControlOfferV1>,
     prim_offer: Option<ExtDataControlOfferV1>,
+    cur_src: Option<ExtDataControlSourceV1>, // our source that currently owns the clipboard
+    saved: Option<String>,                   // what was on the clipboard before our picks
 }
 
 impl Clipboard {
@@ -30,37 +36,85 @@ impl Clipboard {
         Clipboard { manager, ..Default::default() }
     }
 
-    /// Offers `text` as both the clipboard and the primary selection.
-    pub fn set(&mut self, text: &str, qh: &QueueHandle<App>) -> bool {
-        let (Some(m), Some(d)) = (&self.manager, &self.device) else { return false };
-        self.text = text.to_string();
-        for primary in [false, true] {
-            let src = m.create_data_source(qh, ());
-            for mime in MIMES {
-                src.offer(mime.to_string());
-            }
-            if primary {
-                d.set_primary_selection(Some(&src));
-            } else {
-                d.set_selection(Some(&src));
-            }
+    fn source(&self, text: &str, qh: &QueueHandle<App>) -> Option<ExtDataControlSourceV1> {
+        let src = self.manager.as_ref()?.create_data_source(qh, Arc::from(text));
+        for mime in MIMES.iter().chain([&HINT]) {
+            src.offer(mime.to_string());
         }
+        Some(src)
+    }
+
+    /// Offers `text` as both the clipboard and the primary selection,
+    /// remembering the previous clipboard text first.
+    pub fn set(&mut self, text: &str, qh: &QueueHandle<App>, conn: &Connection) -> bool {
+        let Some(d) = self.device.clone() else { return false };
+        if self.cur_src.is_none() {
+            self.saved = self.sel_offer.as_ref().and_then(|o| read_text(o, conn));
+        }
+        let (Some(a), Some(b)) = (self.source(text, qh), self.source(text, qh)) else { return false };
+        d.set_selection(Some(&a));
+        d.set_primary_selection(Some(&b));
+        self.cur_src = Some(a);
         true
     }
+
+    /// After the paste: put the previous text back (or empty the clipboard).
+    pub fn restore(&mut self, qh: &QueueHandle<App>) {
+        let Some(d) = self.device.clone() else { return };
+        d.set_primary_selection(None);
+        match &self.saved {
+            Some(t) => {
+                let src = self.source(t, qh);
+                d.set_selection(src.as_ref());
+                self.cur_src = src;
+            }
+            None => {
+                d.set_selection(None);
+                self.cur_src = None;
+            }
+        }
+    }
+}
+
+/// Reads the text of a clipboard offer, giving up after 300 ms of silence.
+fn read_text(offer: &ExtDataControlOfferV1, conn: &Connection) -> Option<String> {
+    let (mut r, w) = std::io::pipe().ok()?;
+    offer.receive(MIMES[0].to_string(), w.as_fd());
+    drop(w);
+    conn.flush().ok()?;
+    let (mut out, mut buf) = (Vec::new(), [0u8; 4096]);
+    loop {
+        let mut pfd = libc::pollfd { fd: r.as_raw_fd(), events: libc::POLLIN, revents: 0 };
+        if unsafe { libc::poll(&mut pfd, 1, 300) } <= 0 || out.len() > 4 << 20 {
+            return None;
+        }
+        match r.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => out.extend_from_slice(&buf[..n]),
+            Err(_) => return None,
+        }
+    }
+    String::from_utf8(out).ok().filter(|s| !s.is_empty())
 }
 
 impl Dispatch<ExtDataControlManagerV1, ()> for App {
     fn event(_: &mut Self, _: &ExtDataControlManagerV1, _: <ExtDataControlManagerV1 as Proxy>::Event, _: &(), _: &Connection, _: &QueueHandle<Self>) {}
 }
 
-impl Dispatch<ExtDataControlSourceV1, ()> for App {
-    fn event(app: &mut Self, src: &ExtDataControlSourceV1, ev: ext_data_control_source_v1::Event, _: &(), _: &Connection, _: &QueueHandle<Self>) {
+impl Dispatch<ExtDataControlSourceV1, Arc<str>> for App {
+    fn event(app: &mut Self, src: &ExtDataControlSourceV1, ev: ext_data_control_source_v1::Event, text: &Arc<str>, _: &Connection, _: &QueueHandle<Self>) {
         match ev {
-            ext_data_control_source_v1::Event::Send { fd, .. } => {
-                let mut f = std::fs::File::from(fd);
-                let _ = f.write_all(app.clipboard.text.as_bytes());
+            ext_data_control_source_v1::Event::Send { mime_type, fd } => {
+                let data = if mime_type == HINT { "secret" } else { text };
+                let _ = std::fs::File::from(fd).write_all(data.as_bytes());
             }
-            ext_data_control_source_v1::Event::Cancelled => src.destroy(),
+            ext_data_control_source_v1::Event::Cancelled => {
+                // Someone else copied something: the clipboard is no longer ours.
+                if app.clipboard.cur_src.as_ref() == Some(src) {
+                    app.clipboard.cur_src = None;
+                }
+                src.destroy();
+            }
             _ => {}
         }
     }
@@ -68,7 +122,7 @@ impl Dispatch<ExtDataControlSourceV1, ()> for App {
 
 impl Dispatch<ExtDataControlDeviceV1, ()> for App {
     fn event(app: &mut Self, _: &ExtDataControlDeviceV1, ev: ext_data_control_device_v1::Event, _: &(), _: &Connection, _: &QueueHandle<Self>) {
-        // We never read other apps' clipboards; just free their offers once replaced.
+        // Keep the latest offers (to read the old text before a pick); free replaced ones.
         use ext_data_control_device_v1::Event;
         let c = &mut app.clipboard;
         match ev {

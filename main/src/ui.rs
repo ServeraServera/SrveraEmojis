@@ -18,7 +18,7 @@ const SIDEBAR_W: f32 = 150.0;
 const TOP: f32 = TITLE_H + SEARCH_H + 10.0; // where sidebar and content start
 const MODE_H: f32 = 28.0;
 const CAT_Y: f32 = TOP + MODE_H + 8.0;
-const CAT_H: f32 = 23.0;
+const CAT_H: f32 = 22.0;
 const CX0: f32 = SIDEBAR_W + PAD; // content area
 const CX1: f32 = WIDTH as f32 - PAD;
 const CY1: f32 = HEIGHT as f32 - PAD;
@@ -30,6 +30,8 @@ const UI_FONT: f32 = 13.0;
 const KAO_FONT: f32 = 15.0;
 const MAX_RECENT: usize = 32;
 const RECENT_ICON: &str = "🕘";
+const STAR: &str = "⭐";
+const CLEAR_W: f32 = 44.0; // "Clear" hit area at the right of the Recent row
 
 fn rgb(hex: u32, a: u8) -> Color {
     Color::from_rgba8((hex >> 16) as u8, (hex >> 8) as u8, hex as u8, a)
@@ -65,7 +67,7 @@ struct Row {
 pub struct Ui {
     pub query: String,
     kao: bool,
-    cat: usize, // 0 = Recent, n = category n-1
+    cat: usize, // 0 = Favorites, 1 = Recent, n = category n-2
     view: Vec<u32>,
     rows: Vec<Row>,
     content_h: f32,
@@ -73,10 +75,12 @@ pub struct Ui {
     hover: Option<usize>,
     scroll: f32,
     recent: Vec<u32>,
+    favs: Vec<u32>,
     fonts: Option<Fonts>,
     emojis: EmojiCache,
     mask: Option<Mask>,
     recent_icon: Option<u32>,
+    star: Option<u32>,
     close_hover: bool,
     bar_hover: bool,
     bar_grab: Option<f32>, // pointer offset inside the scrollbar thumb while dragging
@@ -94,18 +98,18 @@ impl Ui {
             sel: 0,
             hover: None,
             scroll: 0.0,
-            recent: load_recent(),
+            recent: load_list("recent"),
+            favs: load_list("favorites"),
             fonts: None,
             emojis: EmojiCache::default(),
             mask: None,
             recent_icon: data::find_text(RECENT_ICON),
+            star: data::find_text(STAR),
             close_hover: false,
             bar_hover: false,
             bar_grab: None,
         };
-        if !ui.recent.is_empty() {
-            ui.cat = 0;
-        }
+        ui.cat = ui.default_cat();
         ui
     }
 
@@ -135,17 +139,29 @@ impl Ui {
         self.rows = Vec::new();
     }
 
+    /// Items of a saved list that belong to the current mode.
+    fn mine(&self, list: &[u32]) -> Vec<u32> {
+        list.iter().copied().filter(|&i| data::is_emoji(i) != self.kao).collect()
+    }
+
+    /// Favorites if this mode has any, else Recent if it has any, else the first category.
+    fn default_cat(&self) -> usize {
+        if !self.mine(&self.favs).is_empty() { 0 } else if !self.mine(&self.recent).is_empty() { 1 } else { 2 }
+    }
+
     fn cat_count(&self) -> usize {
-        1 + if self.kao { data::kao_cat_count() } else { data::emoji_cat_count() }
+        2 + if self.kao { data::kao_cat_count() } else { data::emoji_cat_count() }
     }
 
     fn rebuild(&mut self) {
         self.view = if !self.query.trim().is_empty() {
             data::search(&self.query)
         } else if self.cat == 0 {
-            self.recent.iter().copied().filter(|&i| data::is_emoji(i) != self.kao).collect()
+            self.mine(&self.favs)
+        } else if self.cat == 1 {
+            self.mine(&self.recent)
         } else {
-            data::category_items(self.kao, self.cat - 1)
+            data::category_items(self.kao, self.cat - 2)
         };
         let cols = ((CX1 - CX0) / EMOJI_CELL).floor() as usize;
         self.rows.clear();
@@ -238,7 +254,7 @@ impl Ui {
             Keysym::End if has && self.query.is_empty() => self.sel = self.view.len() - 1,
             Keysym::Tab | Keysym::ISO_Left_Tab if m.ctrl => {
                 self.kao = !self.kao;
-                self.set_cat(1);
+                self.set_cat(self.default_cat());
             }
             Keysym::Tab => self.set_cat((self.cat + 1) % self.cat_count()),
             Keysym::ISO_Left_Tab => self.set_cat((self.cat + self.cat_count() - 1) % self.cat_count()),
@@ -327,12 +343,19 @@ impl Ui {
             let kao = x >= (PAD + SIDEBAR_W) / 2.0;
             if kao != self.kao {
                 self.kao = kao;
-                self.set_cat(1);
+                self.set_cat(self.default_cat());
             }
             return Action::Redraw;
         }
         if (PAD..SIDEBAR_W).contains(&x) && y >= CAT_Y {
             let c = ((y - CAT_Y) / CAT_H) as usize;
+            if c == 1 && x >= SIDEBAR_W - CLEAR_W && !self.mine(&self.recent).is_empty() {
+                let kao = self.kao;
+                self.recent.retain(|&i| data::is_emoji(i) == kao);
+                save_list("recent", &self.recent);
+                self.set_cat(1);
+                return Action::Redraw;
+            }
             if c < self.cat_count() {
                 self.set_cat(c);
                 return Action::Redraw;
@@ -352,7 +375,27 @@ impl Ui {
         self.recent.retain(|&i| i != item);
         self.recent.insert(0, item);
         self.recent.truncate(MAX_RECENT);
-        save_recent(&self.recent);
+        save_list("recent", &self.recent);
+    }
+
+    /// Right click: add the item under the pointer to favorites, or remove it.
+    pub fn right_click(&mut self, x: f32, y: f32) -> Action {
+        let Some(i) = self.hit_content(x, y) else { return Action::None };
+        let item = self.view[i];
+        match self.favs.iter().position(|&f| f == item) {
+            Some(p) => {
+                self.favs.remove(p);
+            }
+            None => self.favs.push(item),
+        }
+        save_list("favorites", &self.favs);
+        if self.cat == 0 && self.query.trim().is_empty() {
+            let scroll = self.scroll;
+            self.rebuild();
+            self.scroll = scroll;
+            self.clamp_scroll();
+        }
+        Action::Redraw
     }
 
     // ---------------------------------------------------------------- drawing
@@ -360,6 +403,7 @@ impl Ui {
     /// Draws the whole window into `pm` (physical pixels, `s` = scale factor).
     pub fn draw(&mut self, pm: &mut PixmapMut, s: f32) {
         let ncat = self.cat_count();
+        let has_recent = !self.mine(&self.recent).is_empty();
         let fonts = self.fonts.get_or_insert_with(Fonts::new);
         pm.fill(Color::TRANSPARENT);
         let (w, h) = (WIDTH as f32, HEIGHT as f32);
@@ -410,9 +454,11 @@ impl Ui {
                 fill_rr(pm, s, PAD, y, SIDEBAR_W - PAD, CAT_H - 2.0, 5.0, c_sel(), None);
             }
             let (name, icon) = if c == 0 {
+                ("Favorites", self.star.filter(|_| !self.kao))
+            } else if c == 1 {
                 ("Recent", self.recent_icon.filter(|_| !self.kao))
             } else {
-                let (r, n) = data::category(self.kao, c - 1);
+                let (r, n) = data::category(self.kao, c - 2);
                 (n, (!self.kao).then_some(r.start))
             };
             let mut x = PAD + 8.0;
@@ -426,6 +472,10 @@ impl Ui {
             }
             let col = if c == self.cat && !searching { c_text() } else { c_dim() };
             fonts.draw(pm, name, x * s, (y + (CAT_H - 2.0) / 2.0) * s, UI_FONT * s, col, (SIDEBAR_W - x) * s, None);
+            if c == 1 && has_recent {
+                let cw = fonts.measure("Clear", 11.0 * s) / s;
+                fonts.draw(pm, "Clear", (SIDEBAR_W - 8.0 - cw) * s, (y + (CAT_H - 2.0) / 2.0) * s, 11.0 * s, c_dim(), CLEAR_W * s, None);
+            }
         }
 
         // Content, clipped to its area.
@@ -470,6 +520,12 @@ impl Ui {
                         pm.draw_pixmap(((x + off) * s).round() as i32, ((y + off) * s).round() as i32, img.as_ref(), &PixmapPaint::default(), Transform::identity(), mask);
                     }
                 }
+                // Small star in the corner of favorites.
+                if let (true, Some(star)) = (self.favs.contains(&item), self.star) {
+                    if let Some(img) = self.emojis.get(star, (12.0 * s).round() as u32) {
+                        pm.draw_pixmap(((x + cw - 14.0) * s) as i32, ((y + 2.0) * s) as i32, img.as_ref(), &PixmapPaint::default(), Transform::identity(), mask);
+                    }
+                }
             }
         }
 
@@ -505,25 +561,21 @@ fn fill_rr(pm: &mut PixmapMut, s: f32, x: f32, y: f32, w: f32, h: f32, r: f32, c
     }
 }
 
-fn recent_path() -> Option<std::path::PathBuf> {
-    let base = std::env::var_os("XDG_CACHE_HOME")
+/// Saved lists live in ~/.local/share/emoji-picker/<name>, one item per line.
+fn list_path(name: &str) -> Option<std::path::PathBuf> {
+    let base = std::env::var_os("XDG_DATA_HOME")
         .map(std::path::PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".cache")))?;
-    Some(base.join("emoji-picker/recent"))
+        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".local/share")))?;
+    Some(base.join("emoji-picker").join(name))
 }
 
-fn load_recent() -> Vec<u32> {
-    let Some(p) = recent_path() else { return Vec::new() };
-    std::fs::read_to_string(p)
-        .unwrap_or_default()
-        .lines()
-        .filter_map(data::find_text)
-        .take(MAX_RECENT)
-        .collect()
+fn load_list(name: &str) -> Vec<u32> {
+    let Some(p) = list_path(name) else { return Vec::new() };
+    std::fs::read_to_string(p).unwrap_or_default().lines().filter_map(data::find_text).collect()
 }
 
-fn save_recent(items: &[u32]) {
-    let Some(p) = recent_path() else { return };
+fn save_list(name: &str, items: &[u32]) {
+    let Some(p) = list_path(name) else { return };
     let _ = std::fs::create_dir_all(p.parent().unwrap());
     let body: Vec<&str> = items.iter().map(|&i| data::text(i)).collect();
     let _ = std::fs::write(p, body.join("\n"));
@@ -552,11 +604,17 @@ mod tests {
             eprintln!("{name}: {:?}", t.elapsed());
             std::fs::write(format!("{dir}/{name}.rgba"), &buf).unwrap();
         };
-        ui.key(Keysym::Tab, None, &ctrl); // -> kaomoji
-        shot(&mut ui, "kaomoji");
-        ui.key(Keysym::Tab, None, &m);
-        ui.key(Keysym::Tab, None, &m); // -> Crying
-        ui.key(Keysym::Tab, None, &m);
+        // Emoji mode: a few favorites and recents (not saved to disk).
+        let pick = |t: &str| data::find_text(t).unwrap();
+        ui.favs = vec![pick("😀"), pick("😂"), pick("(╥﹏╥)")];
+        ui.recent = vec![pick("😂"), pick("👍")];
+        ui.set_cat(2);
+        shot(&mut ui, "emoji_stars");
+        ui.set_cat(0);
+        shot(&mut ui, "emoji_favorites");
+        ui.key(Keysym::Tab, None, &ctrl); // -> kaomoji, opens on Favorites
+        shot(&mut ui, "kaomoji_favorites");
+        ui.set_cat(5); // Crying
         shot(&mut ui, "kaomoji_crying");
         for c in ["c", "r", "y"] {
             ui.key(Keysym::NoSymbol, Some(c), &m);

@@ -20,7 +20,7 @@ use smithay_client_toolkit::{
     registry_handlers,
     seat::{
         keyboard::{KeyEvent, KeyboardHandler, Keysym, Modifiers},
-        pointer::{PointerEvent, PointerEventKind, PointerHandler, BTN_LEFT},
+        pointer::{PointerEvent, PointerEventKind, PointerHandler, BTN_LEFT, BTN_RIGHT},
         Capability, SeatHandler, SeatState,
     },
     shell::{
@@ -104,6 +104,7 @@ pub struct App {
     grabbed: bool, // we hold the keyboard (search box clicked)
     moving: Option<(f64, f64)>, // pointer position where the title bar was grabbed
     pos: Option<(i32, i32)>,    // window position after the first move (kept until exit)
+    pick_id: u32,               // only the latest pick restores the clipboard
 }
 
 pub fn run(listener: UnixListener, show: bool, paste_key: PasteKey) -> Result<(), Box<dyn std::error::Error>> {
@@ -149,6 +150,7 @@ pub fn run(listener: UnixListener, show: bool, paste_key: PasteKey) -> Result<()
         grabbed: false,
         moving: None,
         pos: None,
+        pick_id: 0,
     };
     if app.clipboard.manager.is_none() {
         eprintln!("emoji-picker: compositor lacks ext-data-control; pasting won't work");
@@ -287,7 +289,7 @@ impl App {
 
     fn pick(&mut self, item: u32) {
         self.ui.add_recent(item);
-        let copied = self.clipboard.set(crate::data::text(item), &self.qh);
+        let copied = self.clipboard.set(crate::data::text(item), &self.qh, &self.conn);
         // Stay open, but hand the keyboard back so the paste reaches the previous window.
         self.set_focus(false);
         if !copied || self.vkbd.is_none() {
@@ -295,10 +297,19 @@ impl App {
         }
         // Give the compositor a moment to hand focus back to the previous window.
         let _ = self.conn.flush();
-        let _ = self.handle.insert_source(Timer::from_duration(Duration::from_millis(70)), |_, _, app| {
+        self.pick_id += 1;
+        let id = self.pick_id;
+        let _ = self.handle.insert_source(Timer::from_duration(Duration::from_millis(70)), move |_, _, app| {
             if let Some(k) = &app.vkbd {
                 k.paste(app.paste_key);
             }
+            // Once the app has read the emoji, put the old clipboard back.
+            let _ = app.handle.insert_source(Timer::from_duration(Duration::from_millis(500)), move |_, _, app| {
+                if app.pick_id == id {
+                    app.clipboard.restore(&app.qh);
+                }
+                TimeoutAction::Drop
+            });
             TimeoutAction::Drop
         });
     }
@@ -493,6 +504,7 @@ impl PointerHandler for App {
                 PointerEventKind::Leave { .. } => self.ui.leave(),
                 PointerEventKind::Motion { .. } => self.ui.motion(x, y),
                 PointerEventKind::Press { button: BTN_LEFT, .. } => self.ui.click(x, y),
+                PointerEventKind::Press { button: BTN_RIGHT, .. } => self.ui.right_click(x, y),
                 PointerEventKind::Release { button: BTN_LEFT, .. } => self.ui.button_up(),
                 PointerEventKind::Axis { vertical, .. } => {
                     let dy = if vertical.discrete != 0 { vertical.discrete as f64 * 44.0 } else { vertical.absolute * 1.5 };

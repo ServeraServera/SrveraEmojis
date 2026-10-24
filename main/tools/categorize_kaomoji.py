@@ -2,7 +2,7 @@
 
 Reads the untouched original and rewrites the file the app uses:
     python3 tools/categorize_kaomoji.py ../kaomojis-msime.orig.txt ../kaomojis-msime.txt
-(run from the test/ folder), then rebuild with: cargo build --release
+(run from the main/ folder), then rebuild with: cargo build --release
 
 To change categories: edit CATS below. A category's synonyms decide which
 keywords get that category's name put in front of them. If you add, remove or
