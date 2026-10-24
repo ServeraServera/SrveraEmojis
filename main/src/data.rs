@@ -143,7 +143,7 @@ mod tests {
         assert!(item_count() - emoji_count() > 50_000);
         assert_eq!(emoji_cat_count(), 9);
         assert_eq!(kao_cat_count(), 15);
-        assert_eq!(category(true, 3).1, "Crying");
+        assert!(category(true, 3).1.starts_with("Crying"));
     }
 
     #[test]

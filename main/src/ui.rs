@@ -37,15 +37,33 @@ fn rgb(hex: u32, a: u8) -> Color {
     Color::from_rgba8((hex >> 16) as u8, (hex >> 8) as u8, hex as u8, a)
 }
 // Breeze Dark-like palette.
-fn c_window() -> Color { rgb(0x202326, 0xFF) }
-fn c_field() -> Color { rgb(0x141618, 0xFF) }
-fn c_border() -> Color { rgb(0x3A3F44, 0xFF) }
-fn c_text() -> Color { rgb(0xFCFCFC, 0xFF) }
-fn c_dim() -> Color { rgb(0x9AA1A8, 0xFF) }
-fn c_accent() -> Color { rgb(0x3DAEE9, 0xFF) }
-fn c_sel() -> Color { rgb(0x3DAEE9, 0x60) }
-fn c_hover() -> Color { rgb(0xFFFFFF, 0x16) }
-fn c_close() -> Color { rgb(0xDA4453, 0xFF) }
+fn c_window() -> Color {
+    rgb(0x202326, 0xFF)
+}
+fn c_field() -> Color {
+    rgb(0x141618, 0xFF)
+}
+fn c_border() -> Color {
+    rgb(0x3A3F44, 0xFF)
+}
+fn c_text() -> Color {
+    rgb(0xFCFCFC, 0xFF)
+}
+fn c_dim() -> Color {
+    rgb(0x9AA1A8, 0xFF)
+}
+fn c_accent() -> Color {
+    rgb(0x3DAEE9, 0xFF)
+}
+fn c_sel() -> Color {
+    rgb(0x3DAEE9, 0x60)
+}
+fn c_hover() -> Color {
+    rgb(0xFFFFFF, 0x16)
+}
+fn c_close() -> Color {
+    rgb(0xDA4453, 0xFF)
+}
 
 pub enum Action {
     None,
@@ -141,16 +159,29 @@ impl Ui {
 
     /// Items of a saved list that belong to the current mode.
     fn mine(&self, list: &[u32]) -> Vec<u32> {
-        list.iter().copied().filter(|&i| data::is_emoji(i) != self.kao).collect()
+        list.iter()
+            .copied()
+            .filter(|&i| data::is_emoji(i) != self.kao)
+            .collect()
     }
 
     /// Favorites if this mode has any, else Recent if it has any, else the first category.
     fn default_cat(&self) -> usize {
-        if !self.mine(&self.favs).is_empty() { 0 } else if !self.mine(&self.recent).is_empty() { 1 } else { 2 }
+        if !self.mine(&self.favs).is_empty() {
+            0
+        } else if !self.mine(&self.recent).is_empty() {
+            1
+        } else {
+            2
+        }
     }
 
     fn cat_count(&self) -> usize {
-        2 + if self.kao { data::kao_cat_count() } else { data::emoji_cat_count() }
+        2 + if self.kao {
+            data::kao_cat_count()
+        } else {
+            data::emoji_cat_count()
+        }
     }
 
     fn rebuild(&mut self) {
@@ -169,12 +200,25 @@ impl Ui {
         let mut i = 0;
         while i < self.view.len() {
             let kao = !data::is_emoji(self.view[i]);
-            let (per, h) = if kao { (KAO_COLS, KAO_ROW) } else { (cols, EMOJI_CELL) };
+            let (per, h) = if kao {
+                (KAO_COLS, KAO_ROW)
+            } else {
+                (cols, EMOJI_CELL)
+            };
             let mut len = 0;
-            while len < per && i + len < self.view.len() && data::is_emoji(self.view[i + len]) != kao {
+            while len < per
+                && i + len < self.view.len()
+                && data::is_emoji(self.view[i + len]) != kao
+            {
                 len += 1;
             }
-            self.rows.push(Row { y, h, start: i, len, kao });
+            self.rows.push(Row {
+                y,
+                h,
+                start: i,
+                len,
+                kao,
+            });
             y += h;
             i += len;
         }
@@ -242,7 +286,11 @@ impl Ui {
         match sym {
             Keysym::Escape => return Action::Close,
             Keysym::Return | Keysym::KP_Enter => {
-                return if has { Action::Pick(self.view[self.sel]) } else { Action::None };
+                return if has {
+                    Action::Pick(self.view[self.sel])
+                } else {
+                    Action::None
+                };
             }
             Keysym::Left if has => self.sel = self.sel.saturating_sub(1),
             Keysym::Right if has => self.sel = (self.sel + 1).min(self.view.len() - 1),
@@ -257,7 +305,9 @@ impl Ui {
                 self.set_cat(self.default_cat());
             }
             Keysym::Tab => self.set_cat((self.cat + 1) % self.cat_count()),
-            Keysym::ISO_Left_Tab => self.set_cat((self.cat + self.cat_count() - 1) % self.cat_count()),
+            Keysym::ISO_Left_Tab => {
+                self.set_cat((self.cat + self.cat_count() - 1) % self.cat_count())
+            }
             Keysym::BackSpace => {
                 if m.ctrl {
                     let t = self.query.trim_end().rfind(' ').map_or(0, |p| p + 1);
@@ -272,7 +322,9 @@ impl Ui {
                 self.rebuild();
             }
             _ => match utf8 {
-                Some(t) if !m.ctrl && !m.alt && !t.chars().any(char::is_control) && !t.is_empty() => {
+                Some(t)
+                    if !m.ctrl && !m.alt && !t.chars().any(char::is_control) && !t.is_empty() =>
+                {
                     self.query.push_str(t);
                     self.rebuild();
                 }
@@ -288,8 +340,14 @@ impl Ui {
             return None;
         }
         let cy = y - TOP + self.scroll;
-        let r = self.rows.get(self.rows.partition_point(|r| r.y + r.h <= cy))?;
-        let cw = if r.kao { (CX1 - CX0) / KAO_COLS as f32 } else { EMOJI_CELL };
+        let r = self
+            .rows
+            .get(self.rows.partition_point(|r| r.y + r.h <= cy))?;
+        let cw = if r.kao {
+            (CX1 - CX0) / KAO_COLS as f32
+        } else {
+            EMOJI_CELL
+        };
         let col = ((x - CX0) / cw) as usize;
         (col < r.len).then_some(r.start + col)
     }
@@ -301,7 +359,11 @@ impl Ui {
             self.clamp_scroll();
             return Action::Redraw;
         }
-        let state = (self.hit_content(x, y), Self::on_close(x, y), Self::on_bar(x, y));
+        let state = (
+            self.hit_content(x, y),
+            Self::on_close(x, y),
+            Self::on_bar(x, y),
+        );
         if state != (self.hover, self.close_hover, self.bar_hover) {
             (self.hover, self.close_hover, self.bar_hover) = state;
             return Action::Redraw;
@@ -317,7 +379,9 @@ impl Ui {
 
     /// Left button released: ends a scrollbar drag.
     pub fn button_up(&mut self) -> Action {
-        self.bar_grab.take().map_or(Action::None, |_| Action::Redraw)
+        self.bar_grab
+            .take()
+            .map_or(Action::None, |_| Action::Redraw)
     }
 
     pub fn click(&mut self, x: f32, y: f32) -> Action {
@@ -335,7 +399,11 @@ impl Ui {
         }
         if let (true, Some((ty, th))) = (Self::on_bar(x, y), self.thumb()) {
             // On the thumb: keep the grab point. On the track: center the thumb there.
-            let grab = if (ty..ty + th).contains(&y) { y - ty } else { th / 2.0 };
+            let grab = if (ty..ty + th).contains(&y) {
+                y - ty
+            } else {
+                th / 2.0
+            };
             self.bar_grab = Some(grab);
             return self.motion(x, y);
         }
@@ -368,7 +436,11 @@ impl Ui {
         let old = self.scroll;
         self.scroll += dy;
         self.clamp_scroll();
-        if old != self.scroll { Action::Redraw } else { Action::None }
+        if old != self.scroll {
+            Action::Redraw
+        } else {
+            Action::None
+        }
     }
 
     pub fn add_recent(&mut self, item: u32) {
@@ -380,7 +452,9 @@ impl Ui {
 
     /// Right click: add the item under the pointer to favorites, or remove it.
     pub fn right_click(&mut self, x: f32, y: f32) -> Action {
-        let Some(i) = self.hit_content(x, y) else { return Action::None };
+        let Some(i) = self.hit_content(x, y) else {
+            return Action::None;
+        };
         let item = self.view[i];
         match self.favs.iter().position(|&f| f == item) {
             Some(p) => {
@@ -411,39 +485,138 @@ impl Ui {
         fill_rr(pm, s, 1.0, 1.0, w - 2.0, h - 2.0, 11.0, c_window(), None);
 
         // Title bar.
-        fonts.draw(pm, "Emoji Picker", (PAD + 4.0) * s, (TITLE_H / 2.0 + 1.0) * s, 12.0 * s, c_dim(), 200.0 * s, None);
+        fonts.draw(
+            pm,
+            "Emoji Picker",
+            (PAD + 4.0) * s,
+            (TITLE_H / 2.0 + 1.0) * s,
+            12.0 * s,
+            c_dim(),
+            200.0 * s,
+            None,
+        );
         let cx = w - 6.0 - CLOSE_W;
         if self.close_hover {
             fill_rr(pm, s, cx, 4.0, CLOSE_W, TITLE_H - 6.0, 5.0, c_close(), None);
         }
         let xw = fonts.measure("×", 18.0 * s) / s;
         let xc = if self.close_hover { c_text() } else { c_dim() };
-        fonts.draw(pm, "×", (cx + (CLOSE_W - xw) / 2.0) * s, (TITLE_H / 2.0 + 1.0) * s, 18.0 * s, xc, CLOSE_W * s, None);
+        fonts.draw(
+            pm,
+            "×",
+            (cx + (CLOSE_W - xw) / 2.0) * s,
+            (TITLE_H / 2.0 + 1.0) * s,
+            18.0 * s,
+            xc,
+            CLOSE_W * s,
+            None,
+        );
 
         // Search box.
-        fill_rr(pm, s, PAD, TITLE_H, w - 2.0 * PAD, SEARCH_H, 8.0, c_accent(), None);
-        fill_rr(pm, s, PAD + 1.5, TITLE_H + 1.5, w - 2.0 * PAD - 3.0, SEARCH_H - 3.0, 6.5, c_field(), None);
+        fill_rr(
+            pm,
+            s,
+            PAD,
+            TITLE_H,
+            w - 2.0 * PAD,
+            SEARCH_H,
+            8.0,
+            c_accent(),
+            None,
+        );
+        fill_rr(
+            pm,
+            s,
+            PAD + 1.5,
+            TITLE_H + 1.5,
+            w - 2.0 * PAD - 3.0,
+            SEARCH_H - 3.0,
+            6.5,
+            c_field(),
+            None,
+        );
         let cy = TITLE_H + SEARCH_H / 2.0;
         let tx = PAD + 14.0;
         let maxw = (w - 2.0 * PAD - 28.0) * s;
         let tw = if self.query.is_empty() {
-            fonts.draw(pm, "Search emoji & kaomoji…", (tx + 6.0) * s, cy * s, 14.0 * s, c_dim(), maxw, None);
+            fonts.draw(
+                pm,
+                "Search emoji & kaomoji…",
+                (tx + 6.0) * s,
+                cy * s,
+                14.0 * s,
+                c_dim(),
+                maxw,
+                None,
+            );
             0.0
         } else {
-            fonts.draw(pm, &self.query, tx * s, cy * s, 14.0 * s, c_text(), maxw, None) / s
+            fonts.draw(
+                pm,
+                &self.query,
+                tx * s,
+                cy * s,
+                14.0 * s,
+                c_text(),
+                maxw,
+                None,
+            ) / s
         };
-        fill_rr(pm, s, tx + tw + 1.0, cy - 9.0, 1.5, 18.0, 0.0, c_text(), None);
+        fill_rr(
+            pm,
+            s,
+            tx + tw + 1.0,
+            cy - 9.0,
+            1.5,
+            18.0,
+            0.0,
+            c_text(),
+            None,
+        );
 
         // Emoji | Kaomoji switch.
         let half = (SIDEBAR_W - PAD) / 2.0;
-        fill_rr(pm, s, PAD, TOP, SIDEBAR_W - PAD, MODE_H, 7.0, c_field(), None);
+        fill_rr(
+            pm,
+            s,
+            PAD,
+            TOP,
+            SIDEBAR_W - PAD,
+            MODE_H,
+            7.0,
+            c_field(),
+            None,
+        );
         let ax = if self.kao { PAD + half } else { PAD };
-        fill_rr(pm, s, ax + 2.0, TOP + 2.0, half - 4.0, MODE_H - 4.0, 5.5, c_accent(), None);
+        fill_rr(
+            pm,
+            s,
+            ax + 2.0,
+            TOP + 2.0,
+            half - 4.0,
+            MODE_H - 4.0,
+            5.5,
+            c_accent(),
+            None,
+        );
         for (i, label) in ["Emoji", "Kaomoji"].iter().enumerate() {
             let lw = fonts.measure(label, UI_FONT * s) / s;
             let x = PAD + half * i as f32 + (half - lw) / 2.0;
-            let col = if (i == 1) == self.kao { c_field() } else { c_text() };
-            fonts.draw(pm, label, x * s, (TOP + MODE_H / 2.0) * s, UI_FONT * s, col, half * s, None);
+            let col = if (i == 1) == self.kao {
+                c_field()
+            } else {
+                c_text()
+            };
+            fonts.draw(
+                pm,
+                label,
+                x * s,
+                (TOP + MODE_H / 2.0) * s,
+                UI_FONT * s,
+                col,
+                half * s,
+                None,
+            );
         }
 
         // Category list.
@@ -451,7 +624,17 @@ impl Ui {
         for c in 0..ncat {
             let y = CAT_Y + c as f32 * CAT_H;
             if c == self.cat && !searching {
-                fill_rr(pm, s, PAD, y, SIDEBAR_W - PAD, CAT_H - 2.0, 5.0, c_sel(), None);
+                fill_rr(
+                    pm,
+                    s,
+                    PAD,
+                    y,
+                    SIDEBAR_W - PAD,
+                    CAT_H - 2.0,
+                    5.0,
+                    c_sel(),
+                    None,
+                );
             }
             let (name, icon) = if c == 0 {
                 ("Favorites", self.star.filter(|_| !self.kao))
@@ -466,33 +649,84 @@ impl Ui {
                 let px = (16.0 * s).round() as u32;
                 if let Some(img) = self.emojis.get(icon, px) {
                     let iy = y + (CAT_H - 2.0 - 16.0) / 2.0;
-                    pm.draw_pixmap((x * s) as i32, (iy * s) as i32, img.as_ref(), &PixmapPaint::default(), Transform::identity(), None);
+                    pm.draw_pixmap(
+                        (x * s) as i32,
+                        (iy * s) as i32,
+                        img.as_ref(),
+                        &PixmapPaint::default(),
+                        Transform::identity(),
+                        None,
+                    );
                 }
                 x += 22.0;
             }
-            let col = if c == self.cat && !searching { c_text() } else { c_dim() };
-            fonts.draw(pm, name, x * s, (y + (CAT_H - 2.0) / 2.0) * s, UI_FONT * s, col, (SIDEBAR_W - x) * s, None);
+            let col = if c == self.cat && !searching {
+                c_text()
+            } else {
+                c_dim()
+            };
+            fonts.draw(
+                pm,
+                name,
+                x * s,
+                (y + (CAT_H - 2.0) / 2.0) * s,
+                UI_FONT * s,
+                col,
+                (SIDEBAR_W - x) * s,
+                None,
+            );
             if c == 1 && has_recent {
                 let cw = fonts.measure("Clear", 11.0 * s) / s;
-                fonts.draw(pm, "Clear", (SIDEBAR_W - 8.0 - cw) * s, (y + (CAT_H - 2.0) / 2.0) * s, 11.0 * s, c_dim(), CLEAR_W * s, None);
+                fonts.draw(
+                    pm,
+                    "Clear",
+                    (SIDEBAR_W - 8.0 - cw) * s,
+                    (y + (CAT_H - 2.0) / 2.0) * s,
+                    11.0 * s,
+                    c_dim(),
+                    CLEAR_W * s,
+                    None,
+                );
             }
         }
 
         // Content, clipped to its area.
         let (pw, ph) = (pm.width(), pm.height());
-        if self.mask.as_ref().is_none_or(|m| m.width() != pw || m.height() != ph) {
+        if self
+            .mask
+            .as_ref()
+            .is_none_or(|m| m.width() != pw || m.height() != ph)
+        {
             let mut m = Mask::new(pw, ph).unwrap();
             if let Some(r) = Rect::from_xywh(CX0 * s, TOP * s, (CX1 - CX0) * s, (CY1 - TOP) * s) {
-                m.fill_path(&PathBuilder::from_rect(r), FillRule::Winding, false, Transform::identity());
+                m.fill_path(
+                    &PathBuilder::from_rect(r),
+                    FillRule::Winding,
+                    false,
+                    Transform::identity(),
+                );
             }
             self.mask = Some(m);
         }
         let mask = self.mask.as_ref();
         if self.view.is_empty() {
-            let msg = if searching { "No results" } else { "Nothing here yet" };
+            let msg = if searching {
+                "No results"
+            } else {
+                "Nothing here yet"
+            };
             let mw = fonts.measure(msg, 14.0 * s) / s;
             let x = CX0 + (CX1 - CX0 - mw) / 2.0;
-            fonts.draw(pm, msg, x * s, (TOP + 60.0) * s, 14.0 * s, c_dim(), (CX1 - CX0) * s, None);
+            fonts.draw(
+                pm,
+                msg,
+                x * s,
+                (TOP + 60.0) * s,
+                14.0 * s,
+                c_dim(),
+                (CX1 - CX0) * s,
+                None,
+            );
             return;
         }
         let first = self.rows.partition_point(|r| r.y + r.h <= self.scroll);
@@ -501,29 +735,62 @@ impl Ui {
             if y >= CY1 {
                 break;
             }
-            let cw = if r.kao { (CX1 - CX0) / KAO_COLS as f32 } else { EMOJI_CELL };
+            let cw = if r.kao {
+                (CX1 - CX0) / KAO_COLS as f32
+            } else {
+                EMOJI_CELL
+            };
             for k in 0..r.len {
                 let idx = r.start + k;
                 let item = self.view[idx];
                 let x = CX0 + k as f32 * cw;
-                let bg = if idx == self.sel { Some(c_sel()) } else if Some(idx) == self.hover { Some(c_hover()) } else { None };
+                let bg = if idx == self.sel {
+                    Some(c_sel())
+                } else if Some(idx) == self.hover {
+                    Some(c_hover())
+                } else {
+                    None
+                };
                 if let Some(bg) = bg {
                     fill_rr(pm, s, x + 1.0, y + 1.0, cw - 2.0, r.h - 2.0, 6.0, bg, mask);
                 }
                 if r.kao {
                     let t = data::text(item);
-                    fonts.draw(pm, t, (x + 8.0) * s, (y + r.h / 2.0) * s, KAO_FONT * s, c_text(), (cw - 16.0) * s, mask);
+                    fonts.draw(
+                        pm,
+                        t,
+                        (x + 8.0) * s,
+                        (y + r.h / 2.0) * s,
+                        KAO_FONT * s,
+                        c_text(),
+                        (cw - 16.0) * s,
+                        mask,
+                    );
                 } else {
                     let px = (EMOJI_SIZE * s).round() as u32;
                     if let Some(img) = self.emojis.get(item, px) {
                         let off = (EMOJI_CELL - EMOJI_SIZE) / 2.0;
-                        pm.draw_pixmap(((x + off) * s).round() as i32, ((y + off) * s).round() as i32, img.as_ref(), &PixmapPaint::default(), Transform::identity(), mask);
+                        pm.draw_pixmap(
+                            ((x + off) * s).round() as i32,
+                            ((y + off) * s).round() as i32,
+                            img.as_ref(),
+                            &PixmapPaint::default(),
+                            Transform::identity(),
+                            mask,
+                        );
                     }
                 }
                 // Small star in the corner of favorites.
                 if let (true, Some(star)) = (self.favs.contains(&item), self.star) {
                     if let Some(img) = self.emojis.get(star, (12.0 * s).round() as u32) {
-                        pm.draw_pixmap(((x + cw - 14.0) * s) as i32, ((y + 2.0) * s) as i32, img.as_ref(), &PixmapPaint::default(), Transform::identity(), mask);
+                        pm.draw_pixmap(
+                            ((x + cw - 14.0) * s) as i32,
+                            ((y + 2.0) * s) as i32,
+                            img.as_ref(),
+                            &PixmapPaint::default(),
+                            Transform::identity(),
+                            mask,
+                        );
                     }
                 }
             }
@@ -532,16 +799,35 @@ impl Ui {
         // Scrollbar: wider and brighter while hovered or dragged.
         if let Some((ty, th)) = self.thumb() {
             let active = self.bar_hover || self.bar_grab.is_some();
-            let (bx, bw, c) = if active { (CX1 + 2.0, 6.0, c_dim()) } else { (CX1 + 3.0, 4.0, c_border()) };
+            let (bx, bw, c) = if active {
+                (CX1 + 2.0, 6.0, c_dim())
+            } else {
+                (CX1 + 3.0, 4.0, c_border())
+            };
             fill_rr(pm, s, bx, ty, bw, th, 3.0, c, None);
         }
     }
-
 }
 
 #[allow(clippy::too_many_arguments)]
-fn fill_rr(pm: &mut PixmapMut, s: f32, x: f32, y: f32, w: f32, h: f32, r: f32, c: Color, mask: Option<&Mask>) {
-    let (x, y, w, h, r) = (x * s, y * s, w * s, h * s, (r * s).min(w / 2.0).min(h / 2.0));
+fn fill_rr(
+    pm: &mut PixmapMut,
+    s: f32,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    r: f32,
+    c: Color,
+    mask: Option<&Mask>,
+) {
+    let (x, y, w, h, r) = (
+        x * s,
+        y * s,
+        w * s,
+        h * s,
+        (r * s).min(w / 2.0).min(h / 2.0),
+    );
     let mut pb = PathBuilder::new();
     pb.move_to(x + r, y);
     pb.line_to(x + w - r, y);
@@ -565,13 +851,21 @@ fn fill_rr(pm: &mut PixmapMut, s: f32, x: f32, y: f32, w: f32, h: f32, r: f32, c
 fn list_path(name: &str) -> Option<std::path::PathBuf> {
     let base = std::env::var_os("XDG_DATA_HOME")
         .map(std::path::PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".local/share")))?;
+        .or_else(|| {
+            std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".local/share"))
+        })?;
     Some(base.join("emoji-picker").join(name))
 }
 
 fn load_list(name: &str) -> Vec<u32> {
-    let Some(p) = list_path(name) else { return Vec::new() };
-    std::fs::read_to_string(p).unwrap_or_default().lines().filter_map(data::find_text).collect()
+    let Some(p) = list_path(name) else {
+        return Vec::new();
+    };
+    std::fs::read_to_string(p)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(data::find_text)
+        .collect()
 }
 
 fn save_list(name: &str, items: &[u32]) {
@@ -594,7 +888,10 @@ mod tests {
         let mut ui = Ui::new();
         ui.reset();
         let m = Modifiers::default();
-        let ctrl = Modifiers { ctrl: true, ..Default::default() };
+        let ctrl = Modifiers {
+            ctrl: true,
+            ..Default::default()
+        };
         let mut shot = |ui: &mut Ui, name: &str| {
             let (w, h) = (WIDTH, HEIGHT);
             let mut buf = vec![0u8; (w * h * 4) as usize];
