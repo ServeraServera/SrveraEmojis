@@ -20,29 +20,34 @@ Targets: ≤15 MB RAM with the window open (currently ~9–10 MB), a few MB idle
 - Free everything window-only on hide (`Ui::release`, `malloc_trim`).
 
 ## Layout
-- `emoji-test.txt` — Unicode emoji list (source of emojis, groups, names).
-- `kaomojis-msime.orig.txt` — untouched original (MS IME dictionary format); not tracked in git.
+- `kaomojis-msime.orig.txt` — untouched original (MS IME dictionary format); kept locally, not in git.
 - `main/` — the Rust crate (binary `srvera-emoji`):
+  - `emoji-test.txt` — Unicode emoji list (source of emojis, groups, names).
   - `kaomojis-msime.txt` — kaomojis as `keyword<TAB>kaomoji`; the keyword's first word is its tab.
   - `build.rs` — parses both .txt files + `assets/twemoji/*.svg` into compact blobs embedded in the binary.
   - `src/main.rs` — CLI and single-instance daemon via `$XDG_RUNTIME_DIR/srvera-emoji.sock`.
   - `src/app.rs` — Wayland side: layer-shell popup, shm buffers, input, scaling, focus, moving, event loop.
   - `src/ui.rs` — state, layout, drawing, hit-testing, favorites/recent lists. Knows nothing about Wayland.
   - `src/data.rs` — read-only access to the embedded tables + keyword search.
-  - `src/text.rs` — kaomoji/UI text: fontdb fallback, rustybuzz shaping, glyph outlines → tiny-skia.
+  - `src/text.rs` — kaomoji/UI text: fontdb fallback, rustybuzz shaping, glyph outlines → tiny-skia;
+    emojis inside text are drawn with the Twemoji SVGs.
   - `src/emoji_img.rs` — inflate an emoji's SVG, render with resvg, small cache.
   - `src/paste.rs` — clipboard (ext-data-control) + virtual keyboard (uinput).
-  - `tools/categorize_kaomoji.py` — rewrites the kaomoji file, prefixing keywords with their category.
   - `assets/twemoji/` — Twemoji 17 SVGs (gitignored, downloaded from jdecked/twemoji).
+  - `assets/icon.svg` — app icon, installed as `~/.local/share/icons/hicolor/scalable/apps/srvera-emoji.svg`
+    (used by the .desktop entries).
 
 ## How it works
 1. **Build time:** `build.rs` assigns every item to exactly one tab and stores items grouped
-   by tab, plus a keyword table and per-emoji deflated SVGs. Emojis: tab = `# group:` in
-   emoji-test.txt (short names in `EMOJI_CATS`). Kaomojis: tab = first word of the keyword,
-   matched against the first part of each `KAO_CATS` pair `(word, label)`; the second part is
-   only the sidebar label. Unmatched → "Other". Skin-tone variants show only in search.
-2. **Daemon:** `srvera-emoji` starts hidden. `--toggle`/`--show`/`--quit` talk to it over the
-   socket; `--toggle` becomes the daemon if none runs. `--paste-key ctrl-v` changes the paste key.
+   by tab, plus a keyword table, per-emoji deflated SVGs and emoji ids sorted by text (to spot
+   emojis inside text). Emojis: tab = `# group:` in emoji-test.txt (short names in `EMOJI_CATS`).
+   Kaomojis: tab = first word of the keyword, matched against the first part of each `KAO_CATS`
+   pair `(word, label)`; the second part is only the sidebar label. If the first word matches
+   nothing, any keyword word (plurals too) is tried, then "Other". Skin-tone variants show only in search.
+2. **Daemon:** `srvera-emoji` starts hidden and picks a font for every kaomoji character once
+   (one pass over the installed fonts, 0.25–1 s while hidden), so scrolling never scans fonts.
+   `--toggle`/`--show`/`--quit` talk to it over the socket; `--toggle` becomes the daemon if none runs.
+   `--paste-key ctrl-v` changes the paste key.
 3. **Window:** a wlr-layer-shell overlay (KWin can't move layer surfaces, so moving = changing
    top/left margins). It opens **without** keyboard focus so the user's app keeps it; clicking the
    search box grabs the keyboard (Exclusive), any pick gives it back.
@@ -53,6 +58,8 @@ Targets: ≤15 MB RAM with the window open (currently ~9–10 MB), a few MB idle
    Shift+Insert through a uinput keyboard → 500 ms later restore the saved text.
 6. **Rendering:** full redraw into a shm buffer (ABGR8888 when available), only visible rows,
    content clipped with a mask; fractional scaling via wp_fractional_scale + viewporter.
+   Emojis are always Twemoji SVGs, also inside kaomojis and text (only fully-qualified emojis
+   count, so text symbols like ♡ or a bare ☀ stay font glyphs).
 
 ## Build, test, install
 Run from `main/`:
@@ -67,13 +74,14 @@ Run from `main/`:
   `~/.config/autostart/`, `/dev/uinput` writable by the user.
 
 ## Editing categories (the user does this)
-- Move an emoji: move its line(s) under another `# group:` in emoji-test.txt.
+- Move an emoji: move its line(s) under another `# group:` in main/emoji-test.txt.
 - Move a kaomoji: change the first word of its keyword in main/kaomojis-msime.txt.
-- Re-categorize all kaomojis: edit `CATS` in tools/categorize_kaomoji.py and rerun it; keep
-  `KAO_CATS` in build.rs in the same order with matching words.
+- Add, rename or reorder kaomoji tabs: edit `KAO_CATS` in build.rs and make the first keyword
+  words in main/kaomojis-msime.txt match.
 
 ## Known issues / next up
-- Kaomoji scrolling can stutter and briefly raise RSS to 20–30 MB: characters missing from
-  the preferred fonts trigger a scan of every installed font (`Fonts::face_for` slow path).
+- After a long idle or heavy RAM use elsewhere, idle RSS drops from 5–8 MB to 1–3 MB (pages
+  evicted/swapped; zram, swappiness 150) and the next Super+. opens slowly.
+- Characters typed in the search box that no kaomoji uses still cost one font scan each.
 - Only text clipboard contents can be restored after a paste; images/files are cleared.
 - 19 Unicode 18 emojis have no Twemoji SVG yet and are skipped.
