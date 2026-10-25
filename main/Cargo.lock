@@ -158,20 +158,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 
 [[package]]
-name = "emoji-picker"
-version = "0.1.0"
-dependencies = [
- "fontdb",
- "libc",
- "miniz_oxide 0.8.9",
- "resvg",
- "rustybuzz",
- "smithay-client-toolkit",
- "wayland-client",
- "wayland-protocols",
-]
-
-[[package]]
 name = "errno"
 version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -570,6 +556,20 @@ dependencies = [
  "wayland-scanner",
  "xkbcommon",
  "xkeysym",
+]
+
+[[package]]
+name = "srvera-emoji"
+version = "0.1.0"
+dependencies = [
+ "fontdb",
+ "libc",
+ "miniz_oxide 0.8.9",
+ "resvg",
+ "rustybuzz",
+ "smithay-client-toolkit",
+ "wayland-client",
+ "wayland-protocols",
 ]
 
 [[package]]

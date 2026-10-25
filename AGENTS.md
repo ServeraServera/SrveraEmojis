@@ -9,7 +9,7 @@ Targets: ≤15 MB RAM with the window open (currently ~9–10 MB), a few MB idle
 ## Coding conventions (always follow)
 - **Least code possible, lightest program possible.** Prefer reusing existing helpers and
   editing data files over new modules, abstractions or crates. No new dependency without a clear reason.
-- Measure memory after changes: `awk '/^Rss|^Pss:/' /proc/$(pgrep -x emoji-picker)/smaps_rollup`
+- Measure memory after changes: `awk '/^Rss|^Pss:/' /proc/$(pgrep -x srvera-emoji)/smaps_rollup`
   (window open and closed).
 - No GUI toolkit: everything is drawn by hand with tiny-skia. Keep it that way.
 - Crate versions are pinned to known APIs (SCTK 0.19, resvg 0.45 with its bundled
@@ -22,10 +22,10 @@ Targets: ≤15 MB RAM with the window open (currently ~9–10 MB), a few MB idle
 ## Layout
 - `emoji-test.txt` — Unicode emoji list (source of emojis, groups, names).
 - `kaomojis-msime.orig.txt` — untouched original (MS IME dictionary format); not tracked in git.
-- `main/` — the Rust crate (binary `emoji-picker`):
+- `main/` — the Rust crate (binary `srvera-emoji`):
   - `kaomojis-msime.txt` — kaomojis as `keyword<TAB>kaomoji`; the keyword's first word is its tab.
   - `build.rs` — parses both .txt files + `assets/twemoji/*.svg` into compact blobs embedded in the binary.
-  - `src/main.rs` — CLI and single-instance daemon via `$XDG_RUNTIME_DIR/emoji-picker.sock`.
+  - `src/main.rs` — CLI and single-instance daemon via `$XDG_RUNTIME_DIR/srvera-emoji.sock`.
   - `src/app.rs` — Wayland side: layer-shell popup, shm buffers, input, scaling, focus, moving, event loop.
   - `src/ui.rs` — state, layout, drawing, hit-testing, favorites/recent lists. Knows nothing about Wayland.
   - `src/data.rs` — read-only access to the embedded tables + keyword search.
@@ -41,13 +41,13 @@ Targets: ≤15 MB RAM with the window open (currently ~9–10 MB), a few MB idle
    emoji-test.txt (short names in `EMOJI_CATS`). Kaomojis: tab = first word of the keyword,
    matched against the first part of each `KAO_CATS` pair `(word, label)`; the second part is
    only the sidebar label. Unmatched → "Other". Skin-tone variants show only in search.
-2. **Daemon:** `emoji-picker` starts hidden. `--toggle`/`--show`/`--quit` talk to it over the
+2. **Daemon:** `srvera-emoji` starts hidden. `--toggle`/`--show`/`--quit` talk to it over the
    socket; `--toggle` becomes the daemon if none runs. `--paste-key ctrl-v` changes the paste key.
 3. **Window:** a wlr-layer-shell overlay (KWin can't move layer surfaces, so moving = changing
    top/left margins). It opens **without** keyboard focus so the user's app keeps it; clicking the
    search box grabs the keyboard (Exclusive), any pick gives it back.
 4. **Tabs:** Favorites (right click toggles, ⭐ marks), Recent (with Clear), then categories;
-   separate per Emoji/Kaomoji mode. Lists are saved in `~/.local/share/emoji-picker/`.
+   separate per Emoji/Kaomoji mode. Lists are saved in `~/.local/share/srvera-emoji/`.
 5. **Paste:** read and save the current clipboard text → offer the pick as clipboard + primary
    selection, marked `x-kde-passwordManagerHint: secret` so Klipper skips it → 70 ms later
    Shift+Insert through a uinput keyboard → 500 ms later restore the saved text.
@@ -60,9 +60,9 @@ Run from `main/`:
 - UI snapshots: `SNAP_DIR=<dir> cargo test --release snapshots -- --ignored`
   (writes raw RGBA 600×496 frames; convert with `magick -size 600x496 -depth 8 rgba:f.rgba f.png`)
 - Install + restart (after any change to code, build.rs or the .txt files):
-  `cargo build --release && install -m755 target/release/emoji-picker ~/.local/bin/ && emoji-picker --quit`
+  `cargo build --release && install -m755 target/release/srvera-emoji ~/.local/bin/ && srvera-emoji --quit`
   (the next Super+. starts the new version).
-- System setup (already done): Super+. → `emoji-picker.desktop` in kglobalshortcutsrc
+- System setup (already done): Super+. → `srvera-emoji.desktop` in kglobalshortcutsrc
   (Plasma's own emoji selector moved to Meta+Ctrl+Alt+Shift+Space), autostart entry in
   `~/.config/autostart/`, `/dev/uinput` writable by the user.
 

@@ -487,7 +487,7 @@ impl Ui {
         // Title bar.
         fonts.draw(
             pm,
-            "Emoji Picker",
+            "Srvera Emoji",
             (PAD + 4.0) * s,
             (TITLE_H / 2.0 + 1.0) * s,
             12.0 * s,
@@ -847,14 +847,14 @@ fn fill_rr(
     }
 }
 
-/// Saved lists live in ~/.local/share/emoji-picker/<name>, one item per line.
+/// Saved lists live in ~/.local/share/srvera-emoji/<name>, one item per line.
 fn list_path(name: &str) -> Option<std::path::PathBuf> {
     let base = std::env::var_os("XDG_DATA_HOME")
         .map(std::path::PathBuf::from)
         .or_else(|| {
             std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".local/share"))
         })?;
-    Some(base.join("emoji-picker").join(name))
+    Some(base.join("srvera-emoji").join(name))
 }
 
 fn load_list(name: &str) -> Vec<u32> {

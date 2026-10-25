@@ -1,8 +1,8 @@
-//! emoji-picker: a tiny background emoji & kaomoji picker for Wayland.
+//! srvera-emoji: a tiny background emoji & kaomoji picker for Wayland.
 //!
-//!   emoji-picker            start the background daemon (hidden)
-//!   emoji-picker --toggle   show/hide the picker (starts the daemon if needed)
-//!   emoji-picker --quit     stop the daemon
+//!   srvera-emoji            start the background daemon (hidden)
+//!   srvera-emoji --toggle   show/hide the picker (starts the daemon if needed)
+//!   srvera-emoji --quit     stop the daemon
 //!   --paste-key ctrl-v      paste with Ctrl+V instead of Shift+Insert
 
 mod app;
@@ -18,14 +18,14 @@ use std::path::PathBuf;
 
 fn socket_path() -> PathBuf {
     let dir = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
-    dir.join("emoji-picker.sock")
+    dir.join("srvera-emoji.sock")
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let has = |f: &str| args.iter().any(|a| a == f);
     if has("-h") || has("--help") {
-        println!("usage: emoji-picker [--toggle | --show | --quit] [--paste-key shift-insert|ctrl-v]");
+        println!("usage: srvera-emoji [--toggle | --show | --quit] [--paste-key shift-insert|ctrl-v]");
         return;
     }
     let paste_key = match args.iter().position(|a| a == "--paste-key").and_then(|i| args.get(i + 1)) {
@@ -48,7 +48,7 @@ fn main() {
             Some(c) => {
                 let _ = s.write_all(&[c]);
             }
-            None => eprintln!("emoji-picker is already running"),
+            None => eprintln!("srvera-emoji is already running"),
         }
         return;
     }
@@ -60,14 +60,14 @@ fn main() {
     let listener = match UnixListener::bind(&path) {
         Ok(l) => l,
         Err(e) => {
-            eprintln!("emoji-picker: cannot listen on {}: {e}", path.display());
+            eprintln!("srvera-emoji: cannot listen on {}: {e}", path.display());
             std::process::exit(1);
         }
     };
     let res = app::run(listener, cmd.is_some(), paste_key);
     let _ = std::fs::remove_file(&path);
     if let Err(e) = res {
-        eprintln!("emoji-picker: {e}");
+        eprintln!("srvera-emoji: {e}");
         std::process::exit(1);
     }
 }

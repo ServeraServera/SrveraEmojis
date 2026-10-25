@@ -118,7 +118,7 @@ pub fn run(listener: UnixListener, show: bool, paste_key: PasteKey) -> Result<()
     let vkbd = match Keyboard::new() {
         Ok(k) => Some(k),
         Err(e) => {
-            eprintln!("emoji-picker: no /dev/uinput access ({e}); picks will only be copied");
+            eprintln!("srvera-emoji: no /dev/uinput access ({e}); picks will only be copied");
             None
         }
     };
@@ -153,10 +153,10 @@ pub fn run(listener: UnixListener, show: bool, paste_key: PasteKey) -> Result<()
         pick_id: 0,
     };
     if app.clipboard.manager.is_none() {
-        eprintln!("emoji-picker: compositor lacks ext-data-control; pasting won't work");
+        eprintln!("srvera-emoji: compositor lacks ext-data-control; pasting won't work");
     }
 
-    // Commands from `emoji-picker --toggle` etc.
+    // Commands from `srvera-emoji --toggle` etc.
     listener.set_nonblocking(true)?;
     handle.insert_source(Generic::new(listener, Interest::READ, Mode::Level), |_, l, app: &mut App| {
         while let Ok((mut s, _)) = l.accept() {
@@ -206,7 +206,7 @@ impl App {
         let surface = self.compositor.create_surface(qh);
         let fractional = self.fractional_mgr.as_ref().map(|m| m.get_fractional_scale(&surface, qh, ()));
         let viewport = self.viewporter.as_ref().map(|v| v.get_viewport(&surface, qh, ()));
-        let layer = self.layer_shell.create_layer_surface(qh, surface, Layer::Overlay, Some("emoji-picker"), None);
+        let layer = self.layer_shell.create_layer_surface(qh, surface, Layer::Overlay, Some("srvera-emoji"), None);
         // Centered until the user moves it, then placed by top/left margins.
         if let Some((x, y)) = self.pos {
             layer.set_anchor(Anchor::TOP | Anchor::LEFT);

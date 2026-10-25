@@ -207,7 +207,7 @@ impl Keyboard {
                 check(libc::ioctl(raw, UI_SET_KEYBIT, k as libc::c_int))?;
             }
             let mut setup = UinputSetup { bustype: 0x06 /* BUS_VIRTUAL */, vendor: 0x1, product: 0x1, version: 1, name: [0; 80], ff_effects_max: 0 };
-            let name = b"emoji-picker virtual keyboard";
+            let name = b"srvera-emoji virtual keyboard";
             setup.name[..name.len()].copy_from_slice(name);
             check(libc::ioctl(raw, UI_DEV_SETUP, &setup))?;
             check(libc::ioctl(raw, UI_DEV_CREATE))?;
