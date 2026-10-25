@@ -17,8 +17,8 @@ const EMOJI_CATS: &[(&str, &str)] = &[
     ("Flags", "Flags"),
 ];
 
-/// Same order as the rewrite script, so a keyword gets the category it was prefixed with.
-/// (word that sorts a kaomoji into the tab, label shown in the sidebar)
+/// (word that sorts a kaomoji into the tab, label shown in the sidebar). The first keyword
+/// word picks the tab; failing that, any keyword word (plurals too), else "Other".
 const KAO_CATS: &[(&str, &str)] = &[
     ("happy", "Happy    (◠‿◠)"),
     ("cute", "Cute  (◍•ᴗ•◍)"),
@@ -62,6 +62,7 @@ fn main() {
     let mut kws: Vec<(u32, u32)> = Vec::new();
     let mut items: Vec<u8> = Vec::new();
     let mut cats: Vec<(u32, u32, u32, u32)> = Vec::new();
+    let mut by_text: Vec<(&str, u32)> = Vec::new();
 
     let push_str = |s: &str, strings: &mut Vec<u8>| -> (u32, u32) {
         let off = strings.len() as u32;
@@ -92,6 +93,9 @@ fn main() {
         for (ci, name) in names.iter().enumerate() {
             let start = idx;
             for it in group_items.iter().filter(|it| it.cat == ci) {
+                if (idx as usize) < emojis.len() {
+                    by_text.push((&it.text, idx));
+                }
                 let (toff, tlen) = push_str(&it.text, &mut strings);
                 assert!(tlen < 0x8000, "item text too long");
                 let kw = *kw_ids.entry(it.kw.clone()).or_insert_with(|| {
@@ -143,11 +147,19 @@ fn main() {
             data.extend_from_slice(&v.to_le_bytes());
         }
     }
+    // Emoji ids sorted by text, to find emojis inside kaomoji/UI text by binary search.
+    by_text.sort();
+    for (_, i) in by_text {
+        data.extend_from_slice(&(i as u16).to_le_bytes());
+    }
 
     let out = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     fs::write(out.join("data.bin"), data).unwrap();
     fs::write(out.join("strings.bin"), strings).unwrap();
     fs::write(out.join("svgs.bin"), svgs).unwrap();
+    // Every distinct kaomoji char, so startup can pick their fonts without reading all kaomojis.
+    let chars: std::collections::BTreeSet<char> = kaomojis.iter().flat_map(|k| k.text.chars()).collect();
+    fs::write(out.join("kao_chars.txt"), chars.into_iter().collect::<String>()).unwrap();
 }
 
 fn parse_emojis(path: &Path, svg_dir: &Path) -> Vec<Item> {

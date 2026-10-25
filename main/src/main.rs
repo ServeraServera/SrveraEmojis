@@ -2,6 +2,7 @@
 //!
 //!   srvera-emoji            start the background daemon (hidden)
 //!   srvera-emoji --toggle   show/hide the picker (starts the daemon if needed)
+//!   srvera-emoji --show     show the picker
 //!   srvera-emoji --quit     stop the daemon
 //!   --paste-key ctrl-v      paste with Ctrl+V instead of Shift+Insert
 

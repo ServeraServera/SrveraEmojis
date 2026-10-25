@@ -5,11 +5,13 @@
 //!   items:  n_items × { text_off u32, text_len u16 (bit 15 = skin tone), kw u16, svg_off u32, svg_len u32 }
 //!   kws:    n_kw × { off u32, len u32 }
 //!   cats:   (n_emoji_cats + n_kao_cats) × { start u32, end u32, name_off u32, name_len u32 }
+//!   sorted: n_emojis × u16 emoji ids, sorted by text
 //! Emojis come first; each category is a contiguous range of items.
 
 const DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/data.bin"));
 const STRINGS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/strings.bin"));
 const SVGS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/svgs.bin"));
+pub const KAO_CHARS: &str = include_str!(concat!(env!("OUT_DIR"), "/kao_chars.txt"));
 
 const HEADER: usize = 20;
 const ITEM: usize = 16;
@@ -88,6 +90,29 @@ pub fn category_items(kao: bool, c: usize) -> Vec<u32> {
     category(kao, c).0.filter(|&i| !is_skin_variant(i)).collect()
 }
 
+/// The longest emoji that `s` starts with, and its length in bytes. Only fully-qualified
+/// emojis are in the table, so text symbols like ♡ or a bare ☀ don't match.
+pub fn emoji_prefix(s: &str) -> Option<(u32, usize)> {
+    let b = s.as_bytes();
+    if b.first()?.is_ascii() && !matches!(b.get(1..4), Some([0xEF, 0xB8, 0x8F] | [0xE2, 0x83, 0xA3])) {
+        return None; // plain ASCII, not a keycap like #️⃣
+    }
+    let base = cat_table() + (emoji_cat_count() + kao_cat_count()) * 16;
+    let id = |k: usize| u16_at(DATA, base + k * 2) as u32;
+    (1..=s.len().min(64)).rev().filter(|&e| s.is_char_boundary(e)).find_map(|e| {
+        let (mut lo, mut hi) = (0, emoji_count() as usize);
+        while lo < hi {
+            let m = (lo + hi) / 2;
+            match text(id(m)).cmp(&s[..e]) {
+                std::cmp::Ordering::Less => lo = m + 1,
+                std::cmp::Ordering::Greater => hi = m,
+                std::cmp::Ordering::Equal => return Some((id(m), e)),
+            }
+        }
+        None
+    })
+}
+
 pub fn find_text(s: &str) -> Option<u32> {
     (0..item_count()).find(|&i| text(i) == s)
 }
@@ -152,6 +177,17 @@ mod tests {
         assert!(r.contains(&"😢"), "{:?}", &r[..10.min(r.len())]);
         assert!(r.contains(&"(╥﹏╥)"));
         assert!(r.iter().position(|t| *t == "😢") < r.iter().position(|t| *t == "(╥﹏╥)"));
+    }
+
+    #[test]
+    fn emoji_in_text() {
+        let t = |s: &str| emoji_prefix(s).map(|(i, n)| (text(i), n));
+        assert_eq!(t("🎂)"), Some(("🎂", 4)));
+        assert_eq!(t("👨‍👩‍👧x"), Some(("👨‍👩‍👧", 18)));
+        assert_eq!(t("#️⃣"), Some(("#️⃣", 7)));
+        assert_eq!(t("♡"), None);
+        assert_eq!(t("☀(・∀・)"), None);
+        assert_eq!(t("a🎂"), None);
     }
 
     #[test]

@@ -1,7 +1,7 @@
 //! Picker state, layout, drawing and input handling. Knows nothing about Wayland:
 //! it draws into a pixel buffer and turns key/pointer input into `Action`s.
 
-use crate::{data, emoji_img::EmojiCache, text::Fonts};
+use crate::{data, text::Fonts};
 use resvg::tiny_skia::{
     Color, FillRule, Mask, Paint, PathBuilder, PixmapMut, PixmapPaint, Rect, Transform,
 };
@@ -95,7 +95,6 @@ pub struct Ui {
     recent: Vec<u32>,
     favs: Vec<u32>,
     fonts: Option<Fonts>,
-    emojis: EmojiCache,
     mask: Option<Mask>,
     recent_icon: Option<u32>,
     star: Option<u32>,
@@ -119,7 +118,6 @@ impl Ui {
             recent: load_list("recent"),
             favs: load_list("favorites"),
             fonts: None,
-            emojis: EmojiCache::default(),
             mask: None,
             recent_icon: data::find_text(RECENT_ICON),
             star: data::find_text(STAR),
@@ -131,9 +129,12 @@ impl Ui {
         ui
     }
 
-    /// Loads the font list ahead of the first open so the window appears instantly.
+    /// Loads the font list and picks a font for every kaomoji char ahead of the first
+    /// open, so the window appears instantly and scrolling never scans fonts.
     pub fn warm_up(&mut self) {
-        self.fonts.get_or_insert_with(Fonts::new);
+        let f = self.fonts.get_or_insert_with(Fonts::new);
+        f.prefetch(data::KAO_CHARS.chars());
+        f.release();
     }
 
     /// Called every time the window opens.
@@ -151,7 +152,6 @@ impl Ui {
         if let Some(f) = &mut self.fonts {
             f.release();
         }
-        self.emojis.clear();
         self.mask = None;
         self.view = Vec::new();
         self.rows = Vec::new();
@@ -647,7 +647,7 @@ impl Ui {
             let mut x = PAD + 8.0;
             if let Some(icon) = icon {
                 let px = (16.0 * s).round() as u32;
-                if let Some(img) = self.emojis.get(icon, px) {
+                if let Some(img) = fonts.emojis.get(icon, px) {
                     let iy = y + (CAT_H - 2.0 - 16.0) / 2.0;
                     pm.draw_pixmap(
                         (x * s) as i32,
@@ -768,7 +768,7 @@ impl Ui {
                     );
                 } else {
                     let px = (EMOJI_SIZE * s).round() as u32;
-                    if let Some(img) = self.emojis.get(item, px) {
+                    if let Some(img) = fonts.emojis.get(item, px) {
                         let off = (EMOJI_CELL - EMOJI_SIZE) / 2.0;
                         pm.draw_pixmap(
                             ((x + off) * s).round() as i32,
@@ -782,7 +782,7 @@ impl Ui {
                 }
                 // Small star in the corner of favorites.
                 if let (true, Some(star)) = (self.favs.contains(&item), self.star) {
-                    if let Some(img) = self.emojis.get(star, (12.0 * s).round() as u32) {
+                    if let Some(img) = fonts.emojis.get(star, (12.0 * s).round() as u32) {
                         pm.draw_pixmap(
                             ((x + cw - 14.0) * s) as i32,
                             ((y + 2.0) * s) as i32,
@@ -886,13 +886,16 @@ mod tests {
     fn snapshots() {
         let dir = std::env::var("SNAP_DIR").unwrap_or_else(|_| "target".into());
         let mut ui = Ui::new();
+        let t = std::time::Instant::now();
+        ui.warm_up();
+        eprintln!("warm_up: {:?}", t.elapsed());
         ui.reset();
         let m = Modifiers::default();
         let ctrl = Modifiers {
             ctrl: true,
             ..Default::default()
         };
-        let mut shot = |ui: &mut Ui, name: &str| {
+        let shot = |ui: &mut Ui, name: &str| {
             let (w, h) = (WIDTH, HEIGHT);
             let mut buf = vec![0u8; (w * h * 4) as usize];
             let mut pm = PixmapMut::from_bytes(&mut buf, w, h).unwrap();
@@ -913,6 +916,8 @@ mod tests {
         shot(&mut ui, "kaomoji_favorites");
         ui.set_cat(5); // Crying
         shot(&mut ui, "kaomoji_crying");
+        ui.set_cat(13); // Seasonal: many emojis inside kaomojis
+        shot(&mut ui, "kaomoji_seasonal");
         for c in ["c", "r", "y"] {
             ui.key(Keysym::NoSymbol, Some(c), &m);
         }
