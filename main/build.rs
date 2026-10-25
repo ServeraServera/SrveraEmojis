@@ -1,4 +1,4 @@
-//! Turns ../emoji-test.txt, ../kaomojis-msime.txt and assets/twemoji/*.svg into three
+//! Turns ../emoji-test.txt, kaomojis-msime.txt and assets/twemoji/*.svg into three
 //! compact blobs that are embedded in the binary (see src/data.rs for the layout).
 
 use std::collections::HashMap;
@@ -47,7 +47,7 @@ struct Item {
 fn main() {
     let root = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     let emoji_path = root.join("../emoji-test.txt");
-    let kao_path = root.join("../kaomojis-msime.txt");
+    let kao_path = root.join("kaomojis-msime.txt");
     let svg_dir = root.join("assets/twemoji");
     for p in [&emoji_path, &kao_path, &svg_dir] {
         println!("cargo:rerun-if-changed={}", p.display());

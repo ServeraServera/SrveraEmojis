@@ -1,7 +1,7 @@
 """Prefix each kaomoji keyword with its main category.
 
 Reads the untouched original and rewrites the file the app uses:
-    python3 tools/categorize_kaomoji.py ../kaomojis-msime.orig.txt ../kaomojis-msime.txt
+    python3 tools/categorize_kaomoji.py ../kaomojis-msime.orig.txt kaomojis-msime.txt
 (run from the main/ folder), then rebuild with: cargo build --release
 
 To change categories: edit CATS below. A category's synonyms decide which
