@@ -59,6 +59,9 @@ Targets: ≤15 MB RAM with the window open (currently ~11 MB, ~8 MB idle), a few
   - `assets/twemoji/` — Twemoji 17 SVGs (from jdecked/twemoji).
   - `assets/icon.svg` — app icon, installed as `~/.local/share/icons/hicolor/scalable/apps/srvera-emoji.svg`
     (used by the .desktop entries).
+  - `packaging/` — release files: uinput udev rule, menu + autostart .desktop entries, `postinst`
+    (deb/rpm: applies the udev rule), `install.sh`/`uninstall.sh` (tarball, per-user).
+- `binaries/` — built release packages (.deb, .rpm, `tarfile/*.tar.gz`).
 
 ## How it works
 1. **Build time:** `build.rs` assigns every item to exactly one tab and stores items grouped
@@ -97,6 +100,12 @@ Run from `main/`:
 - Install + restart (after any change to code, build.rs or the .txt files):
   `cargo build --release && install -m755 target/release/srvera-emoji ~/.local/bin/ && srvera-emoji --quit`
   (then start it again: `srvera-emoji &`, or log out and in for autostart).
+- Release packages (needs zig, cargo-zigbuild, cargo-deb, cargo-generate-rpm): build for glibc 2.31 with
+  `cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.31`, then
+  `cargo deb --no-build --no-strip --target x86_64-unknown-linux-gnu -o ../binaries/` and
+  `cargo generate-rpm --target x86_64-unknown-linux-gnu -o ../binaries/` (config in Cargo.toml). The tarball is
+  that binary + `packaging/` files + `assets/icon.svg` (as `srvera-emoji.svg`) + both licenses, in
+  `binaries/tarfile/srvera-emoji-<version>-x86_64.tar.gz`.
 - System setup (already done): autostart entry in `~/.config/autostart/` (runs the daemon),
   `/dev/uinput` writable by the user (udev `uaccess`), Plasma's own emoji selector moved off
   Meta+. (to Meta+Ctrl+Alt+Shift+Space). The shortcut lives in System Settings → Shortcuts →
