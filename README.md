@@ -54,7 +54,9 @@ It installs to your home folder and only asks for sudo once, to let the picker t
 Run `./uninstall.sh` from the same folder to remove it.
 
 ### I use arch btw 🤓☝️, CachyOS, EndeavorOS, Manjaro (AUR)
+```bash
 Coming soon until new account sign ups are enabled (｡•́︿•̀｡)
+```
 
 ### After installing
 - Plasma's own Emoji Selector also uses (Super + .). Give one of them another key in
