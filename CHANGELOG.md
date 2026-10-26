@@ -2,7 +2,7 @@
 
 
 ## [0.18] - 2026-10-26
-Commit: `PLACEHOLDER`
+Commit: `c3b4275`
 
 ### Changed
 - Super+. now reaches the running picker as a D-Bus signal from KDE's shortcut service
