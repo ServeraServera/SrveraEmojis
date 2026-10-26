@@ -1,8 +1,11 @@
 # SrveraEmojis - Emoji/Kaomoji selector for Wayland (｀・ω・´)
 
-A ultra-lightweight background Emoji & Kaomoji picker for Wayland ( ˶ˆ꒳ˆ˵ ).
-Built and tested on KDE Plasma 6. DOES NOT WORK ON GNOME
-Press (Super + .) anywhere, pick an Emoji or Kaomoji, and it is pasted right into the app you were typing in (*ﾉωﾉ).
+- A ultra-lightweight background Emoji & Kaomoji picker for Wayland ( ˶ˆ꒳ˆ˵ ).
+<p align="center">
+  <img src="docs/header.gif" alt="Demo" width="600">
+</p>
+- Press (Super + .) anywhere, pick an Emoji or Kaomoji, and it is pasted right into the app you were typing in (*ﾉωﾉ).
+- Built and tested on KDE Plasma 6. DOES NOT WORK ON GNOME
 
 ## Installation
 ### Install from source
