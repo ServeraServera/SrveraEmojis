@@ -2,6 +2,7 @@
 //! pointer input, HiDPI scaling and the daemon's event loop.
 
 use crate::paste::{Clipboard, Keyboard, PasteKey};
+use crate::shortcut::{Bus, Event};
 use crate::ui::{self, Action, Ui};
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
@@ -98,6 +99,7 @@ pub struct App {
     win: Option<Window>,
     ui: Ui,
     vkbd: Option<Keyboard>,
+    bus: Option<Bus>, // Super+. from kglobalaccel
     paste_key: PasteKey,
     handle: LoopHandle<'static, App>,
     conn: Connection,
@@ -144,6 +146,7 @@ pub fn run(listener: UnixListener, show: bool, paste_key: PasteKey) -> Result<()
         win: None,
         ui: Ui::new(),
         vkbd,
+        bus: None,
         paste_key,
         handle: handle.clone(),
         conn,
@@ -177,6 +180,28 @@ pub fn run(listener: UnixListener, show: bool, paste_key: PasteKey) -> Result<()
         }
         Ok(PostAction::Continue)
     })?;
+
+    // Super+. arrives from KWin as a D-Bus signal, so a press never starts a process.
+    match Bus::connect().and_then(|mut b| b.start().map(|_| b)) {
+        Ok(bus) => {
+            let fd = bus.sock.try_clone()?;
+            handle.insert_source(Generic::new(fd, Interest::READ, Mode::Level), |_, _, app: &mut App| {
+                let Some(events) = app.bus.as_mut().and_then(Bus::read) else {
+                    app.bus = None;
+                    return Ok(PostAction::Remove);
+                };
+                for ev in events {
+                    match ev {
+                        Event::Toggle => app.toggle(),
+                        Event::Reregister => drop(app.bus.as_mut().map(Bus::register)),
+                    }
+                }
+                Ok(PostAction::Continue)
+            })?;
+            app.bus = Some(bus);
+        }
+        Err(e) => eprintln!("srvera-emoji: no D-Bus global shortcut ({e}); bind `srvera-emoji --toggle` instead"),
+    }
 
     event_loop.dispatch(Duration::from_millis(50), &mut app)?; // learn seats and formats
     app.abgr = app.shm.formats().contains(&wl_shm::Format::Abgr8888);

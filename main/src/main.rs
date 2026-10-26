@@ -19,6 +19,7 @@ mod app;
 mod data;
 mod emoji_img;
 mod paste;
+mod shortcut;
 mod text;
 mod ui;
 

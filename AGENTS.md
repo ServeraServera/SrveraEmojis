@@ -55,7 +55,8 @@ Targets: ≤15 MB RAM with the window open (currently ~11 MB, ~8 MB idle), a few
     emojis inside text are drawn with the Twemoji SVGs.
   - `src/emoji_img.rs` — inflate an emoji's SVG, render with resvg, small cache.
   - `src/paste.rs` — clipboard (ext-data-control) + virtual keyboard (uinput).
-  - `assets/twemoji/` — Twemoji 17 SVGs (gitignored, downloaded from jdecked/twemoji).
+  - `src/shortcut.rs` — Super+. through KDE's kglobalaccel: a minimal D-Bus client (no crate).
+  - `assets/twemoji/` — Twemoji 17 SVGs (from jdecked/twemoji).
   - `assets/icon.svg` — app icon, installed as `~/.local/share/icons/hicolor/scalable/apps/srvera-emoji.svg`
     (used by the .desktop entries).
 
@@ -68,7 +69,12 @@ Targets: ≤15 MB RAM with the window open (currently ~11 MB, ~8 MB idle), a few
    nothing, any keyword word (plurals too) is tried, then "Other". Skin-tone variants show only in search.
 2. **Daemon:** `srvera-emoji` starts hidden and picks a font for every kaomoji character once
    (one pass over the installed fonts, 0.25–1 s while hidden), so scrolling never scans fonts.
-   `--toggle`/`--show`/`--quit` talk to it over the socket; `--toggle` becomes the daemon if none runs.
+   Super+. reaches it as a D-Bus signal: at start it registers the action `srvera-emoji/toggle`
+   with kglobalaccel (inside KWin), default key Meta+., and listens for `globalShortcutPressed`.
+   No process is started per press (that used to cost ~0.5 s from the HDD after memory pressure;
+   now ~25 ms cold). It re-registers when kglobalaccel restarts, and warns on stderr if another
+   shortcut holds the key. `--toggle`/`--show`/`--quit` still talk to it over the Unix socket
+   (scripts, other desktops, app menu); `--toggle` becomes the daemon if none runs.
    `--paste-key ctrl-v` changes the paste key.
 3. **Window:** a wlr-layer-shell overlay (KWin can't move layer surfaces, so moving = changing
    top/left margins). It opens **without** keyboard focus so the user's app keeps it; clicking the
@@ -90,10 +96,11 @@ Run from `main/`:
   (writes raw RGBA 600×496 frames; convert with `magick -size 600x496 -depth 8 rgba:f.rgba f.png`)
 - Install + restart (after any change to code, build.rs or the .txt files):
   `cargo build --release && install -m755 target/release/srvera-emoji ~/.local/bin/ && srvera-emoji --quit`
-  (the next Super+. starts the new version).
-- System setup (already done): Super+. → `srvera-emoji.desktop` in kglobalshortcutsrc
-  (Plasma's own emoji selector moved to Meta+Ctrl+Alt+Shift+Space), autostart entry in
-  `~/.config/autostart/`, `/dev/uinput` writable by the user.
+  (then start it again: `srvera-emoji &`, or log out and in for autostart).
+- System setup (already done): autostart entry in `~/.config/autostart/` (runs the daemon),
+  `/dev/uinput` writable by the user (udev `uaccess`), Plasma's own emoji selector moved off
+  Meta+. (to Meta+Ctrl+Alt+Shift+Space). The shortcut lives in System Settings → Shortcuts →
+  "Srvera Emoji"; `srvera-emoji.desktop` has no shortcut any more (app menu only).
 
 ## Editing categories (the user does this)
 - Move an emoji: move its line(s) under another `# group:` in main/emoji-test.txt.
@@ -102,12 +109,8 @@ Run from `main/`:
   words in main/kaomojis-msime.txt match.
 
 ## Known issues / next up
-- After a long idle or heavy RAM use elsewhere, the next Super+. opens slowly (measured ~0.5 s,
-  more under real pressure). Cause: every press makes KWin start a new `srvera-emoji --toggle`
-  through a systemd unit, and that 9 MB binary (plus systemd's own pages) must be re-read from
-  the HDD (btrfs zstd). The daemon itself reopens in ~25 ms even fully evicted (its swap is zram).
-  Fix candidates: register the shortcut with kglobalaccel over D-Bus from the daemon (no process
-  per press), or a tiny separate client binary stored uncompressed.
+- Super+. only works while the daemon runs (autostart starts it); there is no process to launch.
+- The global shortcut needs KDE (kglobalaccel). Elsewhere, bind `srvera-emoji --toggle` yourself.
 - Characters typed in the search box that no kaomoji uses still cost one font scan each.
 - Only text clipboard contents can be restored after a paste; images/files are cleared.
 - 19 Unicode 18 emojis have no Twemoji SVG yet and are skipped.

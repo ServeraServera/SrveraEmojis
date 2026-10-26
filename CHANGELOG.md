@@ -1,6 +1,21 @@
 # Changelog
 
 
+## [0.18] - 2026-10-26
+Commit: `PLACEHOLDER`
+
+### Changed
+- Super+. now reaches the running picker as a D-Bus signal from KDE's shortcut service
+  instead of starting a new `srvera-emoji --toggle` process on every press. After a long
+  idle or heavy RAM use, opening went from ~500 ms (re-reading the program from disk)
+  to ~25 ms; warm opens from ~40 ms to ~15 ms.
+- The shortcut is registered by the picker itself (default Meta+.) and can be changed in
+  System Settings → Shortcuts → "Srvera Emoji"; the .desktop entry no longer carries one.
+
+### Added
+- A warning on start when another shortcut already holds the key, naming it.
+- README: install-from-source steps.
+
 ## [0.17] - 2026-10-26
 Commit: `eef1f21`
 
