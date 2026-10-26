@@ -1,7 +1,7 @@
 # SrveraEmojis - Emoji/Kaomoji selector for Wayland (｀・ω・´)
 
 - A ultra-lightweight background Emoji & Kaomoji picker for Wayland ( ˶ˆ꒳ˆ˵ ).
-<p align="left">
+<p align="center">
   <img src="docs/header.gif" alt="Demo" width="600">
 </p>
 
@@ -45,7 +45,22 @@ On other desktops, bind a key to `srvera-emoji --toggle` yourself.
 ### RAM usage (≧◡≦)
 - With the RAM prices of today, I consider that having a emoji picker gobble up 50-150MBs of RAM is ***preposterous***
 - Hopefully this picker only utilizes 3-7MBs idle and 9-15 with the popup open (ﾟﾛﾟ)
-<p align="left">
+<p align="center">
   <img src="docs/ramusage_comparison.png" alt="Comparison" width="600">
 </p>
 - The usage mentioned was for Pss
+
+### No manual copy-pasting
+- Click an Emoji or Kaomoji and it's pasted straight into the app you were typing in
+- Whatever text you had copied is put back right after, so your clipboard stays intact, *splendid*
+- Picked Emojis & Kaomojis don't clutter *Klipper's* clipboard history either
+
+### Doesn't steal your window's focus ( ˘ω˘ )
+- The popup opens without taking over your keyboard, so the app you're typing in stays in focus
+- Built on Wayland's layer-shell, so it shows up on top of all windows, even fullscreen games and videos
+
+### Over 55k Kaomojis
+- Yes, you heard that right (◍•ᴗ•◍)♡
+<p align="center">
+  <img src="docs/55kaomojis.gif" alt="Showcase" width="600">
+</p>
