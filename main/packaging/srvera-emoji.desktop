@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Srvera Emoji
+Comment=Pick an emoji or kaomoji and paste it
+Exec=srvera-emoji --toggle
+Icon=srvera-emoji
+Categories=Utility;
+StartupNotify=false

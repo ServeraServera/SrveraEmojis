@@ -1,0 +1,5 @@
+#!/bin/sh
+# Apply the uinput rule now, so paste works without logging out.
+udevadm control --reload-rules 2>/dev/null || true
+udevadm trigger --subsystem-match=misc --sysname-match=uinput 2>/dev/null || true
+exit 0

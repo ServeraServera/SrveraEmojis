@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Srvera Emoji (background)
+Exec=srvera-emoji
+Icon=srvera-emoji
+NoDisplay=true
+StartupNotify=false
+X-KDE-autostart-phase=2

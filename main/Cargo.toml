@@ -2,6 +2,35 @@
 name = "srvera-emoji"
 version = "0.18.0"
 edition = "2021"
+description = "Ultra-lightweight emoji and kaomoji picker for Wayland"
+license = "MIT AND CC-BY-4.0"
+authors = ["ServeraServera"]
+homepage = "https://github.com/ServeraServera/SrveraEmojis"
+
+# Built with: cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.31 (runs on glibc 2.31+)
+[package.metadata.deb]
+depends = "libc6 (>= 2.31), libxkbcommon0"
+section = "utils"
+maintainer-scripts = "packaging/"
+assets = [
+  ["target/release/srvera-emoji", "usr/bin/", "755"],
+  ["packaging/60-srvera-uinput.rules", "usr/lib/udev/rules.d/", "644"],
+  ["packaging/srvera-emoji.desktop", "usr/share/applications/", "644"],
+  ["packaging/srvera-emoji-autostart.desktop", "etc/xdg/autostart/srvera-emoji.desktop", "644"],
+  ["assets/icon.svg", "usr/share/icons/hicolor/scalable/apps/srvera-emoji.svg", "644"],
+]
+
+[package.metadata.generate-rpm]
+auto-req = "disabled"
+requires = { "libc.so.6(GLIBC_2.31)(64bit)" = "*", "libxkbcommon.so.0()(64bit)" = "*" }
+post_install_script = "packaging/postinst"
+assets = [
+  { source = "target/release/srvera-emoji", dest = "/usr/bin/srvera-emoji", mode = "755" },
+  { source = "packaging/60-srvera-uinput.rules", dest = "/usr/lib/udev/rules.d/60-srvera-uinput.rules", mode = "644" },
+  { source = "packaging/srvera-emoji.desktop", dest = "/usr/share/applications/srvera-emoji.desktop", mode = "644" },
+  { source = "packaging/srvera-emoji-autostart.desktop", dest = "/etc/xdg/autostart/srvera-emoji.desktop", mode = "644", config = true },
+  { source = "assets/icon.svg", dest = "/usr/share/icons/hicolor/scalable/apps/srvera-emoji.svg", mode = "644" },
+]
 
 [dependencies]
 smithay-client-toolkit = { version = "0.19.2", default-features = false, features = ["calloop", "xkbcommon"] }
