@@ -114,3 +114,30 @@ Run from `main/`:
 - Characters typed in the search box that no kaomoji uses still cost one font scan each.
 - Only text clipboard contents can be restored after a paste; images/files are cleared.
 - 19 Unicode 18 emojis have no Twemoji SVG yet and are skipped.
+
+## Desktop support (for later)
+Requirements: **layer-shell** is hard (`LayerShell::bind` in app.rs; the daemon exits without it).
+**ext-data-control** is soft (without it the picker opens but can't copy/paste); only the ext
+version is used, not the older `zwlr_data_control_manager_v1`. uinput, fonts and scaling don't
+depend on the desktop.
+
+| Desktop | Opens | Pastes |
+|---|---|---|
+| KDE Plasma 6 | ✅ | ✅ (tested) |
+| Sway, labwc, Wayfire, river | ✅ | ✅ with wlroots 0.19+, older versions only have wlr-data-control |
+| Hyprland, niri, COSMIC | ✅ | Likely on current versions (unverified which release added ext-data-control) |
+| GNOME, Weston, X11 | ❌ | ❌ (no layer-shell / not Wayland) |
+
+labwc also covers LXQt, Budgie 10.10 and some Xfce Wayland setups. Outside KDE the shortcut must
+be bound to `srvera-emoji --toggle` by hand (Sway: `bindsym $mod+period exec srvera-emoji --toggle`,
+Hyprland: `bind = SUPER, period, exec, srvera-emoji --toggle`).
+
+Todo, in order of value:
+1. **wlr-data-control fallback** in paste.rs (~30–50 lines): bind `zwlr_data_control_manager_v1`
+   when ext isn't there. Same requests and events, different names; `wayland-protocols-wlr` is
+   already in the dependency tree via SCTK. Makes every "Opens ✅" row paste too.
+2. **Regular-window fallback** for GNOME (~150–250 lines): an xdg-shell toplevel when layer-shell
+   is missing. Needs the `XDG_ACTIVATION_TOKEN` from the shortcut forwarded over the socket by
+   `--toggle` (else focus-stealing prevention may open it unfocused), and close on focus loss.
+   Can't force position or stay-on-top there. GNOME also has no ext/wlr-data-control, so pasting
+   would need another route.
