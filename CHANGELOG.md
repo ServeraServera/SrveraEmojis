@@ -1,7 +1,7 @@
 # Changelog
 
 
-## [0.17] — 2026-10-26
+## [0.17] - 2026-10-26
 Commit: `eef1f21`
 
 ### Changed
@@ -12,7 +12,7 @@ Commit: `eef1f21`
 - AGENTS.md: new "Formatting" rules; the slow open after a long idle is diagnosed (each
   Super+. starts a new process that must be re-read from the HDD).
 
-## [0.16] — 2026-10-25
+## [0.16] - 2026-10-25
 Commit: `695e92a`
 
 ### Added
@@ -27,7 +27,7 @@ Commit: `695e92a`
 ### Changed
 - Docs brought up to date (file locations, kaomoji tab rules, known issues).
 
-## [0.15] — 2026-10-25
+## [0.15] - 2026-10-25
 Commits: `2ed6303`, `b803d59`
 
 ### Changed
@@ -37,7 +37,7 @@ Commits: `2ed6303`, `b803d59`
 ### Added
 - Custom app icon (`main/assets/icon.svg`).
 
-## [0.14] — 2026-10-25
+## [0.14] - 2026-10-25
 Commits: `d0dbd49` … `a8285fa`
 
 ### Changed
@@ -50,7 +50,7 @@ Commits: `d0dbd49` … `a8285fa`
 ### Removed
 - The kaomoji categorizing Python script.
 
-## [0.13] — 2026-10-24
+## [0.13] - 2026-10-24
 Commits: `ef83c08` (plus README/license updates and a duplicate folder removal)
 
 ### Added
@@ -59,7 +59,7 @@ Commits: `ef83c08` (plus README/license updates and a duplicate folder removal)
 ### Changed
 - The "People" emoji tab is now "People/Body".
 
-## [0.12] — 2026-10-24
+## [0.12] - 2026-10-24
 Commit: `aba66a7`
 
 ### Added
@@ -68,7 +68,7 @@ Commit: `aba66a7`
 - The clipboard's previous text is put back after a pick is pasted.
 - Picks are marked as secret so Klipper's clipboard history skips them.
 
-## [0.11] — 2026-10-24
+## [0.11] - 2026-10-24
 Commit: `7180525`
 
 ### Added
@@ -84,7 +84,7 @@ Commit: `7180525`
 - Memory could balloon to 400+ MB (;°△°): drawing now happens only on compositor frame callbacks,
   not on every input event.
 
-## [0.10] — 2026-10-24
+## [0.10] - 2026-10-24
 Commits: `e2ad4ba`, `20873c1`, `7156a2a`
 
 ### Added
