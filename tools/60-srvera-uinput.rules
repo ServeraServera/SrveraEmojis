@@ -1,2 +1,0 @@
-# Let the logged-in user write to /dev/uinput, so the picker can type the paste key.
-KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"
