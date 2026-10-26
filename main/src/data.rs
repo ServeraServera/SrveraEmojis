@@ -98,18 +98,11 @@ pub fn emoji_prefix(s: &str) -> Option<(u32, usize)> {
         return None; // plain ASCII, not a keycap like #️⃣
     }
     let base = cat_table() + (emoji_cat_count() + kao_cat_count()) * 16;
-    let id = |k: usize| u16_at(DATA, base + k * 2) as u32;
+    let ids = DATA[base..base + 2 * emoji_count() as usize].as_chunks::<2>().0;
+    let id = |b: &[u8; 2]| u16::from_le_bytes(*b) as u32;
     (1..=s.len().min(64)).rev().filter(|&e| s.is_char_boundary(e)).find_map(|e| {
-        let (mut lo, mut hi) = (0, emoji_count() as usize);
-        while lo < hi {
-            let m = (lo + hi) / 2;
-            match text(id(m)).cmp(&s[..e]) {
-                std::cmp::Ordering::Less => lo = m + 1,
-                std::cmp::Ordering::Greater => hi = m,
-                std::cmp::Ordering::Equal => return Some((id(m), e)),
-            }
-        }
-        None
+        let k = ids.binary_search_by(|b| text(id(b)).cmp(&s[..e])).ok()?;
+        Some((id(&ids[k]), e))
     })
 }
 

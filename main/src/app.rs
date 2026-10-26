@@ -5,8 +5,8 @@ use crate::paste::{Clipboard, Keyboard, PasteKey};
 use crate::ui::{self, Action, Ui};
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
-    delegate_compositor, delegate_keyboard, delegate_layer, delegate_output, delegate_pointer,
-    delegate_registry, delegate_seat, delegate_shm,
+    delegate_compositor, delegate_keyboard, delegate_layer, delegate_output, delegate_pointer, delegate_registry,
+    delegate_seat, delegate_shm,
     output::{OutputHandler, OutputState},
     reexports::{
         calloop::{
@@ -25,8 +25,7 @@ use smithay_client_toolkit::{
     },
     shell::{
         wlr_layer::{
-            Anchor, KeyboardInteractivity, Layer, LayerShell, LayerShellHandler, LayerSurface,
-            LayerSurfaceConfigure,
+            Anchor, KeyboardInteractivity, Layer, LayerShell, LayerShellHandler, LayerSurface, LayerSurfaceConfigure,
         },
         WaylandSurface,
     },
@@ -37,8 +36,11 @@ use std::os::unix::net::UnixListener;
 use std::time::Duration;
 use wayland_client::{
     globals::registry_queue_init,
-    protocol::{wl_keyboard, wl_output, wl_pointer, wl_seat, wl_shm, wl_surface},
-    Connection, Dispatch, Proxy, QueueHandle,
+    protocol::{
+        wl_keyboard::WlKeyboard, wl_output, wl_output::WlOutput, wl_pointer::WlPointer, wl_seat::WlSeat, wl_shm,
+        wl_surface::WlSurface,
+    },
+    Connection, Dispatch, QueueHandle,
 };
 use wayland_protocols::wp::{
     cursor_shape::v1::client::{
@@ -52,6 +54,8 @@ use wayland_protocols::wp::{
     viewporter::client::{wp_viewport::WpViewport, wp_viewporter::WpViewporter},
 };
 
+pub type Qh = QueueHandle<App>;
+
 /// The visible window. Dropping it destroys every surface object.
 struct Window {
     layer: LayerSurface,
@@ -63,7 +67,7 @@ struct Window {
     configured: bool,
     frame_pending: bool, // waiting for the compositor to show the last frame
     dirty: bool,
-    output: Option<wl_output::WlOutput>,
+    output: Option<WlOutput>,
 }
 
 impl Drop for Window {
@@ -88,8 +92,8 @@ pub struct App {
     viewporter: Option<WpViewporter>,
     cursor_mgr: Option<WpCursorShapeManagerV1>,
     pub clipboard: Clipboard,
-    keyboard: Option<wl_keyboard::WlKeyboard>,
-    pointer: Option<wl_pointer::WlPointer>,
+    keyboard: Option<WlKeyboard>,
+    pointer: Option<WlPointer>,
     mods: Modifiers,
     win: Option<Window>,
     ui: Ui,
@@ -97,11 +101,11 @@ pub struct App {
     paste_key: PasteKey,
     handle: LoopHandle<'static, App>,
     conn: Connection,
-    qh: QueueHandle<App>,
+    qh: Qh,
     pointer_pos: (f64, f64),
     abgr: bool,
     exit: bool,
-    grabbed: bool, // we hold the keyboard (search box clicked)
+    grabbed: bool,              // we hold the keyboard (search box clicked)
     moving: Option<(f64, f64)>, // pointer position where the title bar was grabbed
     pos: Option<(i32, i32)>,    // window position after the first move (kept until exit)
     pick_id: u32,               // only the latest pick restores the clipboard
@@ -188,14 +192,16 @@ pub fn run(listener: UnixListener, show: bool, paste_key: PasteKey) -> Result<()
 }
 
 fn trim_memory() {
-    unsafe {
-        libc::malloc_trim(0);
-    }
+    unsafe { libc::malloc_trim(0) };
 }
 
 impl App {
     fn toggle(&mut self) {
-        if self.win.is_some() { self.hide() } else { self.show() }
+        if self.win.is_some() {
+            self.hide()
+        } else {
+            self.show()
+        }
     }
 
     fn show(&mut self) {
@@ -352,7 +358,7 @@ impl App {
         }
         if !abgr {
             // tiny-skia writes RGBA; ARGB8888 in memory is BGRA.
-            for px in canvas.chunks_exact_mut(4) {
+            for px in canvas.as_chunks_mut::<4>().0 {
                 px.swap(0, 2);
             }
         }
@@ -373,7 +379,7 @@ impl App {
 // ---------------------------------------------------------------- handlers
 
 impl CompositorHandler for App {
-    fn scale_factor_changed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_surface::WlSurface, factor: i32) {
+    fn scale_factor_changed(&mut self, _: &Connection, _: &Qh, _: &WlSurface, factor: i32) {
         if let Some(w) = &mut self.win {
             if w.int_scale != factor {
                 w.int_scale = factor;
@@ -382,8 +388,8 @@ impl CompositorHandler for App {
             }
         }
     }
-    fn transform_changed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_surface::WlSurface, _: wl_output::Transform) {}
-    fn frame(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_surface::WlSurface, _: u32) {
+    fn transform_changed(&mut self, _: &Connection, _: &Qh, _: &WlSurface, _: wl_output::Transform) {}
+    fn frame(&mut self, _: &Connection, _: &Qh, _: &WlSurface, _: u32) {
         if let Some(w) = &mut self.win {
             w.frame_pending = false;
             if std::mem::take(&mut w.dirty) {
@@ -391,28 +397,28 @@ impl CompositorHandler for App {
             }
         }
     }
-    fn surface_enter(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_surface::WlSurface, o: &wl_output::WlOutput) {
+    fn surface_enter(&mut self, _: &Connection, _: &Qh, _: &WlSurface, o: &WlOutput) {
         if let Some(w) = &mut self.win {
             w.output = Some(o.clone());
         }
     }
-    fn surface_leave(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_surface::WlSurface, _: &wl_output::WlOutput) {}
+    fn surface_leave(&mut self, _: &Connection, _: &Qh, _: &WlSurface, _: &WlOutput) {}
 }
 
 impl OutputHandler for App {
     fn output_state(&mut self) -> &mut OutputState {
         &mut self.output_state
     }
-    fn new_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_output::WlOutput) {}
-    fn update_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_output::WlOutput) {}
-    fn output_destroyed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_output::WlOutput) {}
+    fn new_output(&mut self, _: &Connection, _: &Qh, _: WlOutput) {}
+    fn update_output(&mut self, _: &Connection, _: &Qh, _: WlOutput) {}
+    fn output_destroyed(&mut self, _: &Connection, _: &Qh, _: WlOutput) {}
 }
 
 impl LayerShellHandler for App {
-    fn closed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &LayerSurface) {
+    fn closed(&mut self, _: &Connection, _: &Qh, _: &LayerSurface) {
         self.hide();
     }
-    fn configure(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &LayerSurface, _: LayerSurfaceConfigure, _: u32) {
+    fn configure(&mut self, _: &Connection, _: &Qh, _: &LayerSurface, _: LayerSurfaceConfigure, _: u32) {
         // Only the first configure needs a frame; later ones come from moving the window.
         if let Some(w) = &mut self.win {
             if !w.configured {
@@ -427,22 +433,22 @@ impl SeatHandler for App {
     fn seat_state(&mut self) -> &mut SeatState {
         &mut self.seat_state
     }
-    fn new_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
-    fn new_capability(&mut self, _: &Connection, qh: &QueueHandle<Self>, seat: wl_seat::WlSeat, cap: Capability) {
+    fn new_seat(&mut self, _: &Connection, _: &Qh, _: WlSeat) {}
+    fn new_capability(&mut self, _: &Connection, qh: &Qh, seat: WlSeat, cap: Capability) {
         if self.clipboard.device.is_none() {
             if let Some(m) = &self.clipboard.manager {
                 self.clipboard.device = Some(m.get_data_device(&seat, qh, ()));
             }
         }
         if cap == Capability::Keyboard && self.keyboard.is_none() {
-            let cb = Box::new(|app: &mut App, _: &wl_keyboard::WlKeyboard, ev: KeyEvent| app.on_key(ev));
+            let cb = Box::new(|app: &mut App, _: &WlKeyboard, ev: KeyEvent| app.on_key(ev));
             self.keyboard = self.seat_state.get_keyboard_with_repeat(qh, &seat, None, self.handle.clone(), cb).ok();
         }
         if cap == Capability::Pointer && self.pointer.is_none() {
             self.pointer = self.seat_state.get_pointer(qh, &seat).ok();
         }
     }
-    fn remove_capability(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat, cap: Capability) {
+    fn remove_capability(&mut self, _: &Connection, _: &Qh, _: WlSeat, cap: Capability) {
         if cap == Capability::Keyboard {
             if let Some(k) = self.keyboard.take() {
                 k.release();
@@ -454,27 +460,26 @@ impl SeatHandler for App {
             }
         }
     }
-    fn remove_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
+    fn remove_seat(&mut self, _: &Connection, _: &Qh, _: WlSeat) {}
 }
 
 impl KeyboardHandler for App {
-    fn enter(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_keyboard::WlKeyboard, _: &wl_surface::WlSurface, _: u32, _: &[u32], _: &[Keysym]) {
-    }
-    fn leave(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_keyboard::WlKeyboard, _: &wl_surface::WlSurface, _: u32) {
+    fn enter(&mut self, _: &Connection, _: &Qh, _: &WlKeyboard, _: &WlSurface, _: u32, _: &[u32], _: &[Keysym]) {}
+    fn leave(&mut self, _: &Connection, _: &Qh, _: &WlKeyboard, _: &WlSurface, _: u32) {
         // Keyboard taken away (e.g. you clicked another app): stop asking for it.
         self.set_focus(false);
     }
-    fn press_key(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_keyboard::WlKeyboard, _: u32, ev: KeyEvent) {
+    fn press_key(&mut self, _: &Connection, _: &Qh, _: &WlKeyboard, _: u32, ev: KeyEvent) {
         self.on_key(ev);
     }
-    fn release_key(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_keyboard::WlKeyboard, _: u32, _: KeyEvent) {}
-    fn update_modifiers(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_keyboard::WlKeyboard, _: u32, m: Modifiers, _: u32) {
+    fn release_key(&mut self, _: &Connection, _: &Qh, _: &WlKeyboard, _: u32, _: KeyEvent) {}
+    fn update_modifiers(&mut self, _: &Connection, _: &Qh, _: &WlKeyboard, _: u32, m: Modifiers, _: u32) {
         self.mods = m;
     }
 }
 
 impl PointerHandler for App {
-    fn pointer_frame(&mut self, _: &Connection, qh: &QueueHandle<Self>, pointer: &wl_pointer::WlPointer, events: &[PointerEvent]) {
+    fn pointer_frame(&mut self, _: &Connection, qh: &Qh, pointer: &WlPointer, events: &[PointerEvent]) {
         let Some(win) = &self.win else { return };
         let surface = win.layer.wl_surface().clone();
         let mut redraw = false;
@@ -507,7 +512,8 @@ impl PointerHandler for App {
                 PointerEventKind::Press { button: BTN_RIGHT, .. } => self.ui.right_click(x, y),
                 PointerEventKind::Release { button: BTN_LEFT, .. } => self.ui.button_up(),
                 PointerEventKind::Axis { vertical, .. } => {
-                    let dy = if vertical.discrete != 0 { vertical.discrete as f64 * 44.0 } else { vertical.absolute * 1.5 };
+                    let dy =
+                        if vertical.discrete != 0 { vertical.discrete as f64 * 44.0 } else { vertical.absolute * 1.5 };
                     self.ui.scroll_by(dy as f32)
                 }
                 _ => Action::None,
@@ -550,17 +556,17 @@ delegate_layer!(App);
 delegate_registry!(App);
 
 // Protocol objects without interesting events.
-macro_rules! ignore_events {
-    ($($t:ty),*) => {$(
-        impl Dispatch<$t, ()> for App {
-            fn event(_: &mut Self, _: &$t, _: <$t as Proxy>::Event, _: &(), _: &Connection, _: &QueueHandle<Self>) {}
-        }
-    )*};
-}
 ignore_events!(WpFractionalScaleManagerV1, WpViewporter, WpViewport, WpCursorShapeManagerV1, WpCursorShapeDeviceV1);
 
 impl Dispatch<WpFractionalScaleV1, ()> for App {
-    fn event(app: &mut Self, _: &WpFractionalScaleV1, ev: wp_fractional_scale_v1::Event, _: &(), _: &Connection, _: &QueueHandle<Self>) {
+    fn event(
+        app: &mut Self,
+        _: &WpFractionalScaleV1,
+        ev: wp_fractional_scale_v1::Event,
+        _: &(),
+        _: &Connection,
+        _: &Qh,
+    ) {
         if let wp_fractional_scale_v1::Event::PreferredScale { scale } = ev {
             if let Some(w) = &mut app.win {
                 if w.scale120 != scale {

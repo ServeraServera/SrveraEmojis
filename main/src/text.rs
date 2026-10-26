@@ -4,18 +4,23 @@
 //! Emojis inside text are drawn from the Twemoji SVGs, like in the grid.
 
 use crate::{data, emoji_img::EmojiCache};
-use resvg::tiny_skia::{Color, FillRule, Mask, Paint, PathBuilder, PixmapMut, PixmapPaint, Transform};
+use resvg::tiny_skia::{FillRule, Mask, Paint, PathBuilder, PixmapMut, PixmapPaint, Transform};
 use rustybuzz::ttf_parser;
 use std::collections::HashMap;
 
-/// Tried in this order before scanning every installed font.
-const PREFERRED: &[&str] = &[
-    "Noto Sans", "Noto Sans CJK JP", "Noto Sans Symbols", "Noto Sans Symbols 2",
-    "Noto Sans Math", "DejaVu Sans", "Noto Sans Thai", "Noto Sans Kannada", "Noto Sans Tamil",
-    "Noto Sans Arabic", "Noto Sans Devanagari", "Noto Sans Telugu", "Noto Sans Bengali",
-    "Noto Sans Sinhala", "Noto Sans Ethiopic", "Noto Sans Canadian Aboriginal",
-    "Noto Sans Mongolian", "Noto Sans Georgian", "Noto Sans Armenian", "Noto Sans Hebrew",
-];
+/// Tried in this order before scanning every installed font (comma separated).
+const PREFERRED: &str = "Noto Sans,Noto Sans CJK JP,Noto Sans Symbols,Noto Sans Symbols 2,Noto Sans Math,DejaVu Sans,\
+    Noto Sans Thai,Noto Sans Kannada,Noto Sans Tamil,Noto Sans Arabic,Noto Sans Devanagari,Noto Sans Telugu,\
+    Noto Sans Bengali,Noto Sans Sinhala,Noto Sans Ethiopic,Noto Sans Canadian Aboriginal,Noto Sans Mongolian,\
+    Noto Sans Georgian,Noto Sans Armenian,Noto Sans Hebrew";
+
+/// A solid paint from an RGBA color like `0x3DAEE9FF`.
+pub fn paint(rgba: u32) -> Paint<'static> {
+    let [r, g, b, a] = rgba.to_be_bytes();
+    let mut p = Paint::default();
+    p.set_color_rgba8(r, g, b, a);
+    p
+}
 
 /// A memory-mapped font file and the parsed face inside it.
 struct Mapped {
@@ -59,6 +64,7 @@ pub struct Fonts {
     char_face: HashMap<char, Option<fontdb::ID>>,
     loaded: HashMap<fontdb::ID, Mapped>,
     pub emojis: EmojiCache,
+    pub scale: f32, // draw/measure/emoji take logical px and multiply by this
 }
 
 struct Glyph {
@@ -83,12 +89,17 @@ impl Fonts {
         let mut db = fontdb::Database::new();
         db.load_system_fonts();
         let chain = PREFERRED
-            .iter()
-            .filter_map(|f| {
-                db.query(&fontdb::Query { families: &[fontdb::Family::Name(f)], ..Default::default() })
-            })
+            .split(',')
+            .filter_map(|f| db.query(&fontdb::Query { families: &[fontdb::Family::Name(f)], ..Default::default() }))
             .collect();
-        Fonts { db, chain, char_face: HashMap::new(), loaded: HashMap::new(), emojis: EmojiCache::default() }
+        Fonts {
+            db,
+            chain,
+            char_face: HashMap::new(),
+            loaded: HashMap::new(),
+            emojis: EmojiCache::default(),
+            scale: 1.0,
+        }
     }
 
     /// Unmap all font files and drop emoji images (called when the window hides).
@@ -142,12 +153,8 @@ impl Fonts {
                 todo.push(c);
             }
         }
-        let ids: Vec<fontdb::ID> = self
-            .db
-            .faces()
-            .filter(|f| !f.families.iter().any(|(n, _)| n.contains("Emoji")))
-            .map(|f| f.id)
-            .collect();
+        let ids: Vec<fontdb::ID> =
+            self.db.faces().filter(|f| !f.families.iter().any(|(n, _)| n.contains("Emoji"))).map(|f| f.id).collect();
         for id in ids {
             if todo.is_empty() {
                 break;
@@ -216,18 +223,41 @@ impl Fonts {
         (glyphs, x)
     }
 
-    pub fn measure(&mut self, s: &str, size: f32) -> f32 {
-        self.layout(s, size).1
+    pub fn measure(&mut self, t: &str, size: f32) -> f32 {
+        self.layout(t, size * self.scale).1 / self.scale
     }
 
-    /// Draws `s` with its left edge at `x`, vertically centered on `cy` (all physical px).
-    /// Text wider than `max_w` is shrunk (down to 70%) and then cut off.
-    /// Returns the drawn width.
+    /// Draws emoji `item`, `size` px big, with its top-left corner at (`x`, `y`).
+    pub fn emoji(&mut self, pm: &mut PixmapMut, item: u32, x: f32, y: f32, size: f32, mask: Option<&Mask>) {
+        let s = self.scale;
+        self.blit(pm, item, (size * s).round() as u32, x * s, y * s, mask);
+    }
+
+    /// Like `emoji`, in physical px.
+    fn blit(&mut self, pm: &mut PixmapMut, item: u32, px: u32, x: f32, y: f32, mask: Option<&Mask>) {
+        if let Some(img) = self.emojis.get(item, px) {
+            let (x, y) = (x.round() as i32, y.round() as i32);
+            pm.draw_pixmap(x, y, img.as_ref(), &PixmapPaint::default(), Transform::identity(), mask);
+        }
+    }
+
+    /// Draws `t` with its left edge at `x`, vertically centered on `cy`. Text wider than
+    /// `max_w` is shrunk (down to 70%) and then cut off. Returns the drawn width.
+    #[allow(clippy::too_many_arguments)]
     pub fn draw(
-        &mut self, pm: &mut PixmapMut, s: &str, x: f32, cy: f32, size: f32, color: Color, max_w: f32,
+        &mut self,
+        pm: &mut PixmapMut,
+        t: &str,
+        x: f32,
+        cy: f32,
+        size: f32,
+        rgba: u32,
+        max_w: f32,
         mask: Option<&Mask>,
     ) -> f32 {
-        let (mut glyphs, mut w) = self.layout(s, size);
+        let sc = self.scale;
+        let (x, cy, size, max_w) = (x * sc, cy * sc, size * sc, max_w * sc);
+        let (mut glyphs, mut w) = self.layout(t, size);
         if w > max_w && w > 0.0 {
             let k = (max_w / w).max(0.7);
             for g in &mut glyphs {
@@ -238,18 +268,13 @@ impl Fonts {
             w *= k;
         }
         let baseline = cy + size * 0.36;
-        let mut paint = Paint::default();
-        paint.set_color(color);
-        paint.anti_alias = true;
+        let paint = paint(rgba);
         for g in &glyphs {
             if g.x > max_w {
                 break;
             }
             let Some(fid) = g.face else {
-                if let Some(img) = self.emojis.get(g.id, g.scale.round() as u32) {
-                    let (ex, ey) = ((x + g.x).round() as i32, (cy - g.scale / 2.0).round() as i32);
-                    pm.draw_pixmap(ex, ey, img.as_ref(), &PixmapPaint::default(), Transform::identity(), mask);
-                }
+                self.blit(pm, g.id, g.scale.round() as u32, x + g.x, cy - g.scale / 2.0, mask);
                 continue;
             };
             let Some(face) = self.face(fid) else { continue };
@@ -260,7 +285,7 @@ impl Fonts {
                 }
             }
         }
-        w.min(max_w)
+        w.min(max_w) / sc
     }
 }
 
@@ -271,22 +296,28 @@ struct Outline {
     s: f32,
 }
 
+impl Outline {
+    fn at(&self, x: f32, y: f32) -> (f32, f32) {
+        (self.ox + x * self.s, self.oy - y * self.s)
+    }
+}
+
 impl ttf_parser::OutlineBuilder for Outline {
     fn move_to(&mut self, x: f32, y: f32) {
-        self.pb.move_to(self.ox + x * self.s, self.oy - y * self.s);
+        let (x, y) = self.at(x, y);
+        self.pb.move_to(x, y);
     }
     fn line_to(&mut self, x: f32, y: f32) {
-        self.pb.line_to(self.ox + x * self.s, self.oy - y * self.s);
+        let (x, y) = self.at(x, y);
+        self.pb.line_to(x, y);
     }
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        self.pb.quad_to(self.ox + x1 * self.s, self.oy - y1 * self.s, self.ox + x * self.s, self.oy - y * self.s);
+        let ((ax, ay), (x, y)) = (self.at(x1, y1), self.at(x, y));
+        self.pb.quad_to(ax, ay, x, y);
     }
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        self.pb.cubic_to(
-            self.ox + x1 * self.s, self.oy - y1 * self.s,
-            self.ox + x2 * self.s, self.oy - y2 * self.s,
-            self.ox + x * self.s, self.oy - y * self.s,
-        );
+        let ((ax, ay), (bx, by), (x, y)) = (self.at(x1, y1), self.at(x2, y2), self.at(x, y));
+        self.pb.cubic_to(ax, ay, bx, by, x, y);
     }
     fn close(&mut self) {
         self.pb.close();

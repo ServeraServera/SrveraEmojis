@@ -59,9 +59,9 @@ fn main() {
     let mut strings: Vec<u8> = Vec::new();
     let mut svgs: Vec<u8> = Vec::new();
     let mut kw_ids: HashMap<String, u32> = HashMap::new();
-    let mut kws: Vec<(u32, u32)> = Vec::new();
+    let mut kws: Vec<u32> = Vec::new(); // (off, len) pairs
     let mut items: Vec<u8> = Vec::new();
-    let mut cats: Vec<(u32, u32, u32, u32)> = Vec::new();
+    let mut cats: Vec<u32> = Vec::new(); // (start, end, name off, name len) per category
     let mut by_text: Vec<(&str, u32)> = Vec::new();
 
     let push_str = |s: &str, strings: &mut Vec<u8>| -> (u32, u32) {
@@ -74,21 +74,8 @@ fn main() {
     let n_kcat = KAO_CATS.len() + 1; // + "Other"
     let mut idx = 0u32;
     for (group_items, names) in [
-        (
-            &emojis,
-            EMOJI_CATS
-                .iter()
-                .map(|c| c.1.to_string())
-                .collect::<Vec<_>>(),
-        ),
-        (
-            &kaomojis,
-            KAO_CATS
-                .iter()
-                .map(|c| c.1.to_string())
-                .chain(["Other".to_string()])
-                .collect(),
-        ),
+        (&emojis, EMOJI_CATS.iter().map(|c| c.1.to_string()).collect::<Vec<_>>()),
+        (&kaomojis, KAO_CATS.iter().map(|c| c.1.to_string()).chain(["Other".to_string()]).collect()),
     ] {
         for (ci, name) in names.iter().enumerate() {
             let start = idx;
@@ -100,8 +87,8 @@ fn main() {
                 assert!(tlen < 0x8000, "item text too long");
                 let kw = *kw_ids.entry(it.kw.clone()).or_insert_with(|| {
                     let (o, l) = push_str(&it.kw, &mut strings);
-                    kws.push((o, l));
-                    (kws.len() - 1) as u32
+                    kws.extend([o, l]);
+                    (kws.len() / 2 - 1) as u32
                 });
                 let (soff, slen) = match &it.svg {
                     Some(svg) => {
@@ -112,46 +99,25 @@ fn main() {
                     }
                     None => (u32::MAX, 0),
                 };
-                items.extend_from_slice(&toff.to_le_bytes());
-                items.extend_from_slice(
-                    &((tlen as u16) | if it.skin { 0x8000 } else { 0 }).to_le_bytes(),
-                );
-                items.extend_from_slice(&(kw as u16).to_le_bytes());
-                items.extend_from_slice(&soff.to_le_bytes());
-                items.extend_from_slice(&slen.to_le_bytes());
+                let flags = (tlen as u16) | if it.skin { 0x8000 } else { 0 };
+                let (kw, f) = ((kw as u16).to_le_bytes(), flags.to_le_bytes());
+                items.extend([&toff.to_le_bytes()[..], &f, &kw, &soff.to_le_bytes(), &slen.to_le_bytes()].concat());
                 idx += 1;
             }
             let (no, nl) = push_str(name, &mut strings);
-            cats.push((start, idx, no, nl));
+            cats.extend([start, idx, no, nl]);
         }
     }
-    assert!(kws.len() < 0x10000);
+    assert!(kws.len() / 2 < 0x10000);
 
-    let mut data = Vec::new();
-    for v in [
-        idx,
-        kws.len() as u32,
-        n_ecat as u32,
-        n_kcat as u32,
-        emojis.len() as u32,
-    ] {
-        data.extend_from_slice(&v.to_le_bytes());
-    }
-    data.extend_from_slice(&items);
-    for (o, l) in &kws {
-        data.extend_from_slice(&o.to_le_bytes());
-        data.extend_from_slice(&l.to_le_bytes());
-    }
-    for (a, b, c, d) in &cats {
-        for v in [a, b, c, d] {
-            data.extend_from_slice(&v.to_le_bytes());
-        }
-    }
+    let le = |v: &[u32]| v.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<u8>>();
+    let mut data = le(&[idx, kws.len() as u32 / 2, n_ecat as u32, n_kcat as u32, emojis.len() as u32]);
+    data.extend(items);
+    data.extend(le(&kws));
+    data.extend(le(&cats));
     // Emoji ids sorted by text, to find emojis inside kaomoji/UI text by binary search.
     by_text.sort();
-    for (_, i) in by_text {
-        data.extend_from_slice(&(i as u16).to_le_bytes());
-    }
+    data.extend(by_text.iter().flat_map(|&(_, i)| (i as u16).to_le_bytes()));
 
     let out = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     fs::write(out.join("data.bin"), data).unwrap();
@@ -180,13 +146,8 @@ fn parse_emojis(path: &Path, svg_dir: &Path) -> Vec<Item> {
         if line.starts_with('#') || !line.contains("; fully-qualified") {
             continue;
         }
-        let cps: Vec<u32> = line
-            .split(';')
-            .next()
-            .unwrap()
-            .split_whitespace()
-            .map(|h| u32::from_str_radix(h, 16).unwrap())
-            .collect();
+        let cps: Vec<u32> =
+            line.split(';').next().unwrap().split_whitespace().map(|h| u32::from_str_radix(h, 16).unwrap()).collect();
         let comment = line.split_once('#').unwrap().1.trim();
         // "😀 E1.0 grinning face" -> "grinning face"
         let name = comment.splitn(3, ' ').nth(2).unwrap_or("").to_lowercase();
@@ -211,30 +172,20 @@ fn parse_emojis(path: &Path, svg_dir: &Path) -> Vec<Item> {
 }
 
 fn find_svg(dir: &Path, cps: &[u32]) -> Option<Vec<u8>> {
-    let name = |cps: &mut dyn Iterator<Item = &u32>| {
-        cps.map(|c| format!("{c:x}")).collect::<Vec<_>>().join("-")
-    };
+    let name = |cps: &mut dyn Iterator<Item = &u32>| cps.map(|c| format!("{c:x}")).collect::<Vec<_>>().join("-");
     let full = name(&mut cps.iter());
     let no_fe0f = name(&mut cps.iter().filter(|&&c| c != 0xFE0F));
-    [full, no_fe0f]
-        .iter()
-        .find_map(|n| fs::read(dir.join(format!("{n}.svg"))).ok())
-        .map(|s| minify_svg(&s))
+    [full, no_fe0f].iter().find_map(|n| fs::read(dir.join(format!("{n}.svg"))).ok()).map(|s| minify_svg(&s))
 }
 
 /// Twemoji SVGs are already compact; just drop newlines and indentation.
 fn minify_svg(s: &[u8]) -> Vec<u8> {
     let s = String::from_utf8_lossy(s);
-    s.lines()
-        .map(str::trim)
-        .collect::<Vec<_>>()
-        .join(" ")
-        .into_bytes()
+    s.lines().map(str::trim).collect::<Vec<_>>().join(" ").into_bytes()
 }
 
 fn has_word(text: &str, word: &str) -> bool {
-    text.split(|c: char| !c.is_alphanumeric())
-        .any(|w| w == word || w.strip_suffix('s') == Some(word))
+    text.split(|c: char| !c.is_alphanumeric()).any(|w| w == word || w.strip_suffix('s') == Some(word))
 }
 
 fn parse_kaomojis(path: &Path) -> Vec<Item> {
@@ -259,13 +210,7 @@ fn parse_kaomojis(path: &Path) -> Vec<Item> {
             .position(|c| c.0 == first)
             .or_else(|| KAO_CATS.iter().position(|c| has_word(&kw, c.0)))
             .unwrap_or(KAO_CATS.len());
-        out.push(Item {
-            text: kao.to_string(),
-            kw,
-            cat,
-            skin: false,
-            svg: None,
-        });
+        out.push(Item { text: kao.to_string(), kw, cat, skin: false, svg: None });
     }
     out
 }

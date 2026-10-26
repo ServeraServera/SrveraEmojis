@@ -6,6 +6,15 @@
 //!   srvera-emoji --quit     stop the daemon
 //!   --paste-key ctrl-v      paste with Ctrl+V instead of Shift+Insert
 
+/// Empty `Dispatch` impls for protocol objects whose events we don't need.
+macro_rules! ignore_events {
+    ($($t:ty),*) => {$(
+        impl wayland_client::Dispatch<$t, ()> for crate::app::App {
+            fn event(_: &mut Self, _: &$t, _: <$t as wayland_client::Proxy>::Event, _: &(), _: &wayland_client::Connection, _: &crate::app::Qh) {}
+        }
+    )*};
+}
+
 mod app;
 mod data;
 mod emoji_img;
@@ -33,15 +42,7 @@ fn main() {
         Some(k) if k == "ctrl-v" => paste::PasteKey::CtrlV,
         _ => paste::PasteKey::ShiftInsert,
     };
-    let cmd = if has("--toggle") {
-        Some(b't')
-    } else if has("--show") {
-        Some(b's')
-    } else if has("--quit") {
-        Some(b'q')
-    } else {
-        None
-    };
+    let cmd = [("--toggle", b't'), ("--show", b's'), ("--quit", b'q')].into_iter().find(|f| has(f.0)).map(|f| f.1);
 
     let path = socket_path();
     if let Ok(mut s) = UnixStream::connect(&path) {
@@ -58,17 +59,16 @@ fn main() {
     }
     // No daemon yet: become it. A leftover socket file means a previous crash.
     let _ = std::fs::remove_file(&path);
-    let listener = match UnixListener::bind(&path) {
-        Ok(l) => l,
-        Err(e) => {
-            eprintln!("srvera-emoji: cannot listen on {}: {e}", path.display());
-            std::process::exit(1);
-        }
-    };
+    let listener =
+        UnixListener::bind(&path).unwrap_or_else(|e| fail(format!("cannot listen on {}: {e}", path.display())));
     let res = app::run(listener, cmd.is_some(), paste_key);
     let _ = std::fs::remove_file(&path);
     if let Err(e) = res {
-        eprintln!("srvera-emoji: {e}");
-        std::process::exit(1);
+        fail(e.to_string());
     }
+}
+
+fn fail(msg: String) -> ! {
+    eprintln!("srvera-emoji: {msg}");
+    std::process::exit(1)
 }
