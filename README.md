@@ -1,9 +1,10 @@
 # SrveraEmojis - Emoji/Kaomoji selector for Wayland (｀・ω・´)
 
 - A ultra-lightweight background Emoji & Kaomoji picker for Wayland ( ˶ˆ꒳ˆ˵ ).
-<p align="center">
+<p align="left">
   <img src="docs/header.gif" alt="Demo" width="600">
 </p>
+
 - Press (Super + .) anywhere, pick an Emoji or Kaomoji, and it is pasted right into the app you were typing in (*ﾉωﾉ).
 - Built and tested on KDE Plasma 6. DOES NOT WORK ON GNOME
 
@@ -39,3 +40,12 @@
    the key is taken.
 
 On other desktops, bind a key to `srvera-emoji --toggle` yourself.
+
+## Features
+### RAM usage (≧◡≦)
+- With the RAM prices of today, I consider that having a emoji picker gobble up 50-150MBs of RAM is ***preposterous***
+- Hopefully this picker only utilizes 3-7MBs idle and 9-15 with the popup open (ﾟﾛﾟ)
+<p align="left">
+  <img src="docs/ramusage_comparison.png" alt="Comparison" width="600">
+</p>
+- The usage mentioned was for Pss
