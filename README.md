@@ -9,14 +9,6 @@ A ultra-lightweight background Emoji & Kaomoji picker for Wayland, built in pure
 - Built and tested on KDE Plasma 6. **DOES NOT WORK ON GNOME**
 
 ## Features
-### RAM usage (≧◡≦)
-- With the RAM prices of today, I consider that having a emoji picker gobble up 50-150MBs of RAM is ***preposterous***
-- Hopefully this picker only utilizes 3-7MBs idle and 9-15 with the popup open (ﾟﾛﾟ)
-<p align="left">
-  <img src="docs/ramusage_comparison.png" alt="Comparison" width="600">
-</p>
-The usage mentioned was for Pss
-
 ### No manual copy-pasting Σ(･ω･ﾉ)ﾉ
 - Click an Emoji or Kaomoji and it's pasted straight into the app you were typing in
 - Whatever text you had copied is put back right after, so your clipboard stays intact, *splendid*
@@ -26,8 +18,24 @@ The usage mentioned was for Pss
 - The popup opens without taking over your keyboard, so the app you're typing in stays in focus
 - Built on Wayland's layer-shell, so it shows up on top of all windows, even fullscreen games and videos
 
+### Instantaneous at any time
+- Do you still use HDDs in the big 2026? Tired of KDE-Emojier taking several seconds to launch?
+- Then today's your lucky day (´・∀・｀)!
+- I built Srvera emojis to open up in an instant, no matter if you were using a RAM heavy program beforehand or if your disk usage was overloaded (*≧▽≦)
+<p align="left">
+  <img src="docs/ramusage_comparison.png" alt="Placeholder" width="600">
+</p>
+
+### RAM usage (≧◡≦)
+- With the RAM prices of today, I consider that having a emoji picker gobble up 50-150MBs of RAM is ***preposterous***
+- Fortunately this picker only utilizes 3-7MBs idle and 9-15 with the popup open (ﾟﾛﾟ)
+<p align="left">
+  <img src="docs/ramusage_comparison.png" alt="Comparison" width="600">
+</p>
+The usage mentioned was for Pss
+
 ### Over 55k Kaomojis
-Yes, you heard that right (◍•ᴗ•◍)♡
+Yes, you heard that right, so many expressions (◍•ᴗ•◍)♡
 <p align="left">
   <img src="docs/55kaomojis.gif" alt="Showcase" width="600">
 </p>
@@ -135,7 +143,7 @@ hand, and everything it needs is compiled into the binary.
 ### Pasting without touching your clipboard
 1. The text currently on your clipboard is read and kept aside.
 2. The pick is offered as the clipboard (via `ext-data-control`), marked with
-   `x-kde-passwordManagerHint: secret` so Klipper doesn't record it.
+   `x-kde-passwordManagerHint: secret` so Klipper doesn't record it. *(The popup "The clipboard currently holds a sensitive piece of data that will not be stored in the history." might appear)*
 3. Shift + Insert is sent through a virtual keyboard (`/dev/uinput`), which pastes into the
    focused app, terminals included.
 4. Half a second later, your previous clipboard text is put back.
@@ -157,8 +165,5 @@ hand, and everything it needs is compiled into the binary.
 | `main/src/emoji_img.rs` | Twemoji SVG decoding and rendering |
 | `main/src/paste.rs` | Clipboard handling and the virtual keyboard |
 | `main/src/shortcut.rs` | Super+. through KDE's kglobalaccel (minimal D-Bus client) |
-
-
-
 
 Don't mind me ( ͡° ͜ʖ ͡°)
