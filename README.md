@@ -23,7 +23,7 @@ A ultra-lightweight background Emoji & Kaomoji picker for Wayland, built in pure
 - Then today's your lucky day (´・∀・｀)!
 - I built Srvera emojis to open up in an instant, no matter if you were using a RAM heavy program beforehand or if your disk usage was overloaded (*≧▽≦)
 <p align="left">
-  <img src="docs/instant-open.webm" alt="Placeholder" width="600">
+  <img src="docs/instant-open.mp4" alt="Placeholder" width="600">
 </p>
 
 ### RAM usage (≧◡≦)
