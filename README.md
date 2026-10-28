@@ -1,6 +1,7 @@
 <p align="center">
-  <img src="main/assets/icon.svg" alt="Icon" width="300">
+  <img src="main/assets/headericon.svg" alt="Icon" width="300">
 </p>
+
 # SrveraEmojis - Emoji/Kaomoji selector for Wayland (｀・ω・´)
 
 A ultra-lightweight background Emoji & Kaomoji picker for Wayland, built in pure Rust ( ˶ˆ꒳ˆ˵ ).
