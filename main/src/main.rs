@@ -47,6 +47,9 @@ fn main() {
 
     let path = socket_path();
     if let Ok(mut s) = UnixStream::connect(&path) {
+        if has("--paste-key") {
+            eprintln!("srvera-emoji: --paste-key only applies when the daemon starts; run --quit first");
+        }
         match cmd {
             Some(c) => {
                 let _ = s.write_all(&[c]);

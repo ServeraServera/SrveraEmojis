@@ -13,7 +13,7 @@ use smithay_client_toolkit::{
         calloop::{
             generic::Generic,
             timer::{TimeoutAction, Timer},
-            EventLoop, Interest, LoopHandle, Mode, PostAction,
+            EventLoop, Interest, LoopHandle, Mode, PostAction, RegistrationToken,
         },
         calloop_wayland_source::WaylandSource,
     },
@@ -57,6 +57,8 @@ use wayland_protocols::wp::{
 
 pub type Qh = QueueHandle<App>;
 
+const BLINK: Duration = Duration::from_millis(500); // caret on/off time, like Qt's default
+
 /// The visible window. Dropping it destroys every surface object.
 struct Window {
     layer: LayerSurface,
@@ -69,6 +71,9 @@ struct Window {
     frame_pending: bool, // waiting for the compositor to show the last frame
     dirty: bool,
     output: Option<WlOutput>,
+    locating: bool,          // invisible and fullscreen until the pointer enters and shows where to open
+    out: (i32, i32),         // output size, learned while locating
+    pos: Option<(i32, i32)>, // top-left margins once placed; forgotten on hide
 }
 
 impl Drop for Window {
@@ -107,10 +112,10 @@ pub struct App {
     pointer_pos: (f64, f64),
     abgr: bool,
     exit: bool,
-    grabbed: bool,              // we hold the keyboard (search box clicked)
-    moving: Option<(f64, f64)>, // pointer position where the title bar was grabbed
-    pos: Option<(i32, i32)>,    // window position after the first move (kept until exit)
-    pick_id: u32,               // only the latest pick restores the clipboard
+    grabbed: bool,                    // we hold the keyboard (search box clicked)
+    blink: Option<RegistrationToken>, // caret timer while grabbed
+    moving: Option<(f64, f64)>,       // pointer position where the title bar was grabbed
+    pick_id: u32,                     // only the latest pick restores the clipboard
 }
 
 pub fn run(listener: UnixListener, show: bool, paste_key: PasteKey) -> Result<(), Box<dyn std::error::Error>> {
@@ -155,8 +160,8 @@ pub fn run(listener: UnixListener, show: bool, paste_key: PasteKey) -> Result<()
         abgr: false,
         exit: false,
         grabbed: false,
+        blink: None,
         moving: None,
-        pos: None,
         pick_id: 0,
     };
     if app.clipboard.manager.is_none() {
@@ -238,15 +243,18 @@ impl App {
         let fractional = self.fractional_mgr.as_ref().map(|m| m.get_fractional_scale(&surface, qh, ()));
         let viewport = self.viewporter.as_ref().map(|v| v.get_viewport(&surface, qh, ()));
         let layer = self.layer_shell.create_layer_surface(qh, surface, Layer::Overlay, Some("srvera-emoji"), None);
-        // Centered until the user moves it, then placed by top/left margins.
-        if let Some((x, y)) = self.pos {
-            layer.set_anchor(Anchor::TOP | Anchor::LEFT);
-            layer.set_margin(y, 0, 0, x);
+        // Wayland doesn't tell clients where the pointer is, so first cover the output with an invisible
+        // surface and open where the pointer enters it (`place`). Without viewporter: just centered.
+        let locating = viewport.is_some();
+        if locating {
+            layer.set_anchor(Anchor::all());
+        } else {
+            layer.set_size(ui::WIDTH, ui::HEIGHT);
         }
-        layer.set_size(ui::WIDTH, ui::HEIGHT);
+        // Count margins and pointer positions from the output's corner, panels included.
+        layer.set_exclusive_zone(-1);
         // Open without taking the keyboard: the app you're typing in keeps it.
         layer.set_keyboard_interactivity(KeyboardInteractivity::None);
-        self.grabbed = false;
         layer.commit();
         self.ui.reset();
         self.win = Some(Window {
@@ -260,11 +268,57 @@ impl App {
             frame_pending: false,
             dirty: false,
             output: None,
+            locating,
+            out: (0, 0),
+            pos: None,
         });
+        // The pointer may be on another output, or the compositor may not send an enter: open centered then.
+        let _ = self.handle.insert_source(Timer::from_duration(Duration::from_millis(150)), |_, _, app| {
+            if let Some(&Window { locating: true, out, .. }) = app.win.as_ref() {
+                app.place(out.0 / 2 - ui::WIDTH as i32 / 2, out.1 / 2 - ui::HEIGHT as i32 / 2);
+            }
+            TimeoutAction::Drop
+        });
+    }
+
+    /// Shows a 1×1 transparent buffer stretched over the output, so the pointer enters the surface.
+    fn cover(&mut self) {
+        let Some(w) = &mut self.win else { return };
+        let Ok(mut pool) = SlotPool::new(4, &self.shm) else { return };
+        let Ok((buffer, canvas)) = pool.create_buffer(1, 1, 4, wl_shm::Format::Argb8888) else { return };
+        canvas.fill(0);
+        if let Some(vp) = &w.viewport {
+            vp.set_destination(w.out.0, w.out.1);
+        }
+        if buffer.attach_to(w.layer.wl_surface()).is_ok() {
+            w.layer.commit();
+            w.pool = Some(pool);
+        }
+    }
+
+    /// Ends locating: opens the window with its top-left corner at (x, y), kept on the output.
+    fn place(&mut self, x: i32, y: i32) {
+        let Some(w) = &mut self.win else { return };
+        let (ww, wh) = (ui::WIDTH as i32, ui::HEIGHT as i32);
+        (w.locating, w.pool) = (false, None);
+        w.layer.set_size(ui::WIDTH, ui::HEIGHT);
+        if w.out.0 == 0 {
+            // Not configured yet: let the compositor center it, and draw on its configure.
+            w.layer.set_anchor(Anchor::empty());
+            return w.layer.commit();
+        }
+        let p = (x.min(w.out.0 - ww).max(0), y.min(w.out.1 - wh).max(0));
+        w.layer.set_anchor(Anchor::TOP | Anchor::LEFT);
+        w.layer.set_margin(p.1, 0, 0, p.0);
+        w.pos = Some(p);
+        // KWin sends no new configure for this, and the first one already came: draw right away.
+        w.configured = true;
+        self.draw();
     }
 
     fn hide(&mut self) {
         if self.win.take().is_some() {
+            self.set_focus(false);
             self.moving = None;
             self.ui.release();
             let _ = self.conn.flush();
@@ -288,31 +342,44 @@ impl App {
         if on == self.grabbed {
             return;
         }
-        self.grabbed = on;
+        (self.grabbed, self.ui.caret) = (on, on);
+        if let Some(t) = self.blink.take() {
+            self.handle.remove(t);
+        }
+        if on {
+            let t = self.handle.insert_source(Timer::from_duration(BLINK), |_, _, app| {
+                app.ui.caret = !app.ui.caret;
+                app.draw();
+                TimeoutAction::ToDuration(BLINK)
+            });
+            self.blink = t.ok();
+        }
         if let Some(w) = &self.win {
             let k = if on { KeyboardInteractivity::Exclusive } else { KeyboardInteractivity::None };
             w.layer.set_keyboard_interactivity(k);
             w.layer.commit();
         }
+        self.draw();
     }
 
     fn start_move(&mut self) {
-        let Some(w) = &self.win else { return };
-        if self.pos.is_none() {
-            // First move: switch from "centered" to explicit margins at the same spot.
+        let Some(w) = &mut self.win else { return };
+        if w.pos.is_none() {
+            // Opened centered: switch to explicit margins at the same spot.
             let size = w.output.as_ref().and_then(|o| self.output_state.info(o)).and_then(|i| i.logical_size);
             let (ow, oh) = size.unwrap_or((ui::WIDTH as i32, ui::HEIGHT as i32));
-            self.pos = Some(((ow - ui::WIDTH as i32) / 2, (oh - ui::HEIGHT as i32) / 2));
+            w.pos = Some(((ow - ui::WIDTH as i32) / 2, (oh - ui::HEIGHT as i32) / 2));
             w.layer.set_anchor(Anchor::TOP | Anchor::LEFT);
         }
         self.moving = Some(self.pointer_pos);
     }
 
     fn move_to(&mut self, x: f64, y: f64) {
-        let (Some((gx, gy)), Some((px, py)), Some(w)) = (self.moving, self.pos, &self.win) else { return };
+        let (Some((gx, gy)), Some(w)) = (self.moving, &mut self.win) else { return };
+        let Some((px, py)) = w.pos else { return };
         let p = (px + (x - gx) as i32, py + (y - gy) as i32);
         if p != (px, py) {
-            self.pos = Some(p);
+            w.pos = Some(p);
             w.layer.set_margin(p.1, 0, 0, p.0);
             w.layer.commit();
         }
@@ -331,6 +398,10 @@ impl App {
         self.pick_id += 1;
         let id = self.pick_id;
         let _ = self.handle.insert_source(Timer::from_duration(Duration::from_millis(70)), move |_, _, app| {
+            // A newer pick already replaced the clipboard: let only that one paste.
+            if app.pick_id != id {
+                return TimeoutAction::Drop;
+            }
             if let Some(k) = &app.vkbd {
                 k.paste(app.paste_key);
             }
@@ -349,6 +420,7 @@ impl App {
         if self.win.is_none() {
             return;
         }
+        self.ui.caret = true; // solid while typing
         let a = self.ui.key(ev.keysym, ev.utf8.as_deref(), &self.mods);
         self.act(a);
     }
@@ -443,10 +515,15 @@ impl LayerShellHandler for App {
     fn closed(&mut self, _: &Connection, _: &Qh, _: &LayerSurface) {
         self.hide();
     }
-    fn configure(&mut self, _: &Connection, _: &Qh, _: &LayerSurface, _: LayerSurfaceConfigure, _: u32) {
+    fn configure(&mut self, _: &Connection, _: &Qh, _: &LayerSurface, c: LayerSurfaceConfigure, _: u32) {
         // Only the first configure needs a frame; later ones come from moving the window.
         if let Some(w) = &mut self.win {
-            if !w.configured {
+            if w.locating {
+                if w.pool.is_none() {
+                    w.out = (c.new_size.0 as i32, c.new_size.1 as i32);
+                    self.cover();
+                }
+            } else if !w.configured {
                 w.configured = true;
                 self.draw();
             }
@@ -514,6 +591,20 @@ impl PointerHandler for App {
             }
             let (x, y) = (ev.position.0 as f32, ev.position.1 as f32);
             self.pointer_pos = ev.position;
+            let locating = self.win.as_ref().is_some_and(|w| w.locating);
+            if let PointerEventKind::Enter { serial } = ev.kind {
+                if let Some(m) = &self.cursor_mgr {
+                    let d = m.get_pointer(pointer, qh, ());
+                    d.set_shape(serial, wp_cursor_shape_device_v1::Shape::Default);
+                    d.destroy();
+                }
+                if locating {
+                    return self.place(x as i32, y as i32);
+                }
+            }
+            if locating {
+                continue;
+            }
             if self.moving.is_some() {
                 match ev.kind {
                     PointerEventKind::Motion { .. } => self.move_to(ev.position.0, ev.position.1),
@@ -523,16 +614,8 @@ impl PointerHandler for App {
                 continue;
             }
             let a = match ev.kind {
-                PointerEventKind::Enter { serial } => {
-                    if let Some(m) = &self.cursor_mgr {
-                        let d = m.get_pointer(pointer, qh, ());
-                        d.set_shape(serial, wp_cursor_shape_device_v1::Shape::Default);
-                        d.destroy();
-                    }
-                    self.ui.motion(x, y)
-                }
+                PointerEventKind::Enter { .. } | PointerEventKind::Motion { .. } => self.ui.motion(x, y),
                 PointerEventKind::Leave { .. } => self.ui.leave(),
-                PointerEventKind::Motion { .. } => self.ui.motion(x, y),
                 PointerEventKind::Press { button: BTN_LEFT, .. } => self.ui.click(x, y),
                 PointerEventKind::Press { button: BTN_RIGHT, .. } => self.ui.right_click(x, y),
                 PointerEventKind::Release { button: BTN_LEFT, .. } => self.ui.button_up(),

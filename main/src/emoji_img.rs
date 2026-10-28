@@ -21,10 +21,11 @@ impl EmojiCache {
     pub fn get(&mut self, item: u32, px: u32) -> Option<&Pixmap> {
         let key = (item, px);
         if !self.map.contains_key(&key) {
+            // Render first: a failed render must not empty the cache every frame.
+            let pm = render(item, px)?;
             if self.map.len() >= MAX_CACHED {
                 self.map.clear(); // simple and good enough: the visible set is rebuilt in one frame
             }
-            let pm = render(item, px)?;
             self.map.insert(key, pm);
         }
         self.map.get(&key)

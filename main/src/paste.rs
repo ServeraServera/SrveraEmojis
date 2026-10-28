@@ -27,8 +27,9 @@ pub struct Clipboard {
     pub device: Option<ExtDataControlDeviceV1>,
     sel_offer: Option<ExtDataControlOfferV1>,
     prim_offer: Option<ExtDataControlOfferV1>,
-    cur_src: Option<ExtDataControlSourceV1>, // our source that currently owns the clipboard
-    saved: Option<String>,                   // what was on the clipboard before our picks
+    // [clipboard, primary]: our source that currently owns each one, and the text before our picks.
+    cur_src: [Option<ExtDataControlSourceV1>; 2],
+    saved: [Option<String>; 2],
 }
 
 impl Clipboard {
@@ -45,26 +46,37 @@ impl Clipboard {
     }
 
     /// Offers `text` as both the clipboard and the primary selection,
-    /// remembering the previous clipboard text first.
+    /// remembering the previous clipboard and primary text first.
     pub fn set(&mut self, text: &str, qh: &Qh, conn: &Connection) -> bool {
         let Some(d) = self.device.clone() else { return false };
-        if self.cur_src.is_none() {
-            self.saved = self.sel_offer.as_ref().and_then(|o| read_text(o, conn));
+        for (i, offer) in [&self.sel_offer, &self.prim_offer].into_iter().enumerate() {
+            if self.cur_src[i].is_none() {
+                self.saved[i] = offer.as_ref().and_then(|o| read_text(o, conn));
+            }
         }
         let (Some(a), Some(b)) = (self.source(text, qh), self.source(text, qh)) else { return false };
         d.set_selection(Some(&a));
         d.set_primary_selection(Some(&b));
-        self.cur_src = Some(a);
+        self.cur_src = [Some(a), Some(b)];
         true
     }
 
-    /// After the paste: put the previous text back (or empty the clipboard).
+    /// After the paste: put the previous texts back (or empty them). Each one is
+    /// skipped if something else took it meanwhile, so that copy isn't overwritten.
     pub fn restore(&mut self, qh: &Qh) {
         let Some(d) = self.device.clone() else { return };
-        d.set_primary_selection(None);
-        let src = self.saved.as_deref().and_then(|t| self.source(t, qh));
-        d.set_selection(src.as_ref());
-        self.cur_src = src;
+        for i in 0..2 {
+            if self.cur_src[i].is_none() {
+                continue;
+            }
+            let src = self.saved[i].as_deref().and_then(|t| self.source(t, qh));
+            if i == 0 {
+                d.set_selection(src.as_ref());
+            } else {
+                d.set_primary_selection(src.as_ref());
+            }
+            self.cur_src[i] = src;
+        }
     }
 }
 
@@ -106,9 +118,11 @@ impl Dispatch<ExtDataControlSourceV1, Arc<str>> for App {
                 let _ = std::fs::File::from(fd).write_all(data.as_bytes());
             }
             ext_data_control_source_v1::Event::Cancelled => {
-                // Someone else copied something: the clipboard is no longer ours.
-                if app.clipboard.cur_src.as_ref() == Some(src) {
-                    app.clipboard.cur_src = None;
+                // Someone else copied or selected something: that slot is no longer ours.
+                for s in &mut app.clipboard.cur_src {
+                    if s.as_ref() == Some(src) {
+                        *s = None;
+                    }
                 }
                 src.destroy();
             }

@@ -48,7 +48,8 @@ Targets: ≤15 MB RAM with the window open (currently ~11 MB, ~8 MB idle), a few
   - `kaomojis-msime.txt` — kaomojis as `keyword<TAB>kaomoji`; the keyword's first word is its tab.
   - `build.rs` — parses both .txt files + `assets/twemoji/*.svg` into compact blobs embedded in the binary.
   - `src/main.rs` — CLI and single-instance daemon via `$XDG_RUNTIME_DIR/srvera-emoji.sock`.
-  - `src/app.rs` — Wayland side: layer-shell popup, shm buffers, input, scaling, focus, moving, event loop.
+  - `src/app.rs` — Wayland side: layer-shell popup, shm buffers, input, scaling, focus, placing at the
+    pointer, moving, caret blink, event loop.
   - `src/ui.rs` — state, layout, drawing, hit-testing, favorites/recent lists. Knows nothing about Wayland.
   - `src/data.rs` — read-only access to the embedded tables + keyword search.
   - `src/text.rs` — kaomoji/UI text: fontdb fallback, rustybuzz shaping, glyph outlines → tiny-skia;
@@ -80,13 +81,19 @@ Targets: ≤15 MB RAM with the window open (currently ~11 MB, ~8 MB idle), a few
    (scripts, other desktops, app menu); `--toggle` becomes the daemon if none runs.
    `--paste-key ctrl-v` changes the paste key.
 3. **Window:** a wlr-layer-shell overlay (KWin can't move layer surfaces, so moving = changing
-   top/left margins). It opens **without** keyboard focus so the user's app keeps it; clicking the
-   search box grabs the keyboard (Exclusive), any pick gives it back.
+   top/left margins, exclusive zone -1 so they count from the output corner). Opening at the
+   pointer: the surface first covers the output with a 1×1 transparent buffer stretched by the
+   viewport (`cover`), and the pointer's enter position places it (`place`: top-left corner at
+   the pointer, clamped on screen); 150 ms without an enter → centered. The position is
+   kept in `Window`, so it's forgotten on hide. It opens **without** keyboard focus so the user's
+   app keeps it; clicking the search box grabs the keyboard (Exclusive) and starts the caret
+   blink timer (`BLINK`), any pick gives it back.
 4. **Tabs:** Favorites (right click toggles, ⭐ marks), Recent (with Clear), then categories;
    separate per Emoji/Kaomoji mode. Lists are saved in `~/.local/share/srvera-emoji/`.
-5. **Paste:** read and save the current clipboard text → offer the pick as clipboard + primary
-   selection, marked `x-kde-passwordManagerHint: secret` so Klipper skips it → 70 ms later
-   Shift+Insert through a uinput keyboard → 500 ms later restore the saved text.
+5. **Paste:** read and save the current clipboard and primary selection text → offer the pick as
+   both, marked `x-kde-passwordManagerHint: secret` so Klipper skips it → 70 ms later
+   Shift+Insert through a uinput keyboard (only the latest pick pastes) → 500 ms later restore
+   each saved text, unless something else took that one meanwhile.
 6. **Rendering:** full redraw into a shm buffer (ABGR8888 when available), only visible rows,
    content clipped with a mask; fractional scaling via wp_fractional_scale + viewporter.
    Emojis are always Twemoji SVGs, also inside kaomojis and text (only fully-qualified emojis

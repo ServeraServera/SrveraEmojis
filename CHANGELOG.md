@@ -1,6 +1,28 @@
 # Changelog
 
 
+## [0.19] - 2026-10-28
+
+### Fixed
+- The search box caret now only shows while the search box has the keyboard, and blinks
+  (it used to be a static bar all the time).
+- Copying something within half a second of a pick no longer gets replaced by the old
+  clipboard text.
+- Text highlighted before a pick (middle-click paste) is now put back, instead of cleared.
+- Two picks less than 70 ms apart no longer paste the second one twice.
+- Search: keywords starting with the first query word rank first for multi-word queries too
+  ("red heart" → ❤️).
+- `--paste-key` sent to an already running picker now prints a warning instead of being ignored.
+- An emoji that fails to render no longer empties the image cache on every frame.
+
+### Changed
+- The window opens next to the mouse pointer every time (its top-left corner at the pointer,
+  kept on screen) instead of centered. A dragged position is no longer remembered
+  after closing.
+- Emojis inside kaomoji text are found with one lookup for most characters (Seasonal tab
+  draws in ~21 ms instead of ~26 ms; frames unchanged).
+- Added new program Icon
+
 ## [0.18] - 2026-10-26
 Commit: `c3b4275`
 

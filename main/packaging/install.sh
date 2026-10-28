@@ -24,3 +24,4 @@ fi
 setsid -f "$B" >/dev/null 2>&1
 echo "Installed. Press Super+. to open it."
 echo "On KDE, move Plasma's own Emoji Selector off Super+. in System Settings -> Shortcuts."
+echo "Remember that you can always change Srvera Emoji's shortcut in System Settings -> Shortcuts -> Srvera Emoji!"

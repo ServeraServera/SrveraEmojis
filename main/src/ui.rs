@@ -82,6 +82,7 @@ impl Row {
 #[derive(Default)]
 pub struct Ui {
     pub query: String,
+    pub caret: bool, // search caret, blinked by app.rs while the search box has the keyboard
     kao: bool,
     cat: usize, // 0 = Favorites, 1 = Recent, n = category n-2
     view: Vec<u32>,
@@ -125,7 +126,7 @@ impl Ui {
     /// Called every time the window opens.
     pub fn reset(&mut self) {
         self.query.clear();
-        (self.hover, self.close_hover, self.bar_hover, self.bar_grab) = (None, false, false, None);
+        (self.hover, self.close_hover, self.bar_hover, self.bar_grab, self.caret) = (None, false, false, None, false);
         self.rebuild();
     }
 
@@ -436,7 +437,9 @@ impl Ui {
         } else {
             fonts.draw(pm, &self.query, tx, cy, 14.0, TEXT, maxw, None)
         };
-        fill_rr(pm, s, tx + tw + 1.0, cy - 9.0, 1.5, 18.0, 0.0, TEXT, None);
+        if self.caret {
+            fill_rr(pm, s, tx + tw + 1.0, cy - 9.0, 1.5, 18.0, 0.0, TEXT, None);
+        }
 
         // Emoji | Kaomoji switch.
         let half = (SIDEBAR_W - PAD) / 2.0;
@@ -611,6 +614,7 @@ mod tests {
         for c in ["c", "r", "y"] {
             ui.key(Keysym::NoSymbol, Some(c), &m);
         }
+        ui.caret = true;
         shot(&mut ui, "search_cry");
     }
 }

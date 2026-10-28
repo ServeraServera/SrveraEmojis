@@ -100,6 +100,12 @@ pub fn emoji_prefix(s: &str) -> Option<(u32, usize)> {
     let base = cat_table() + (emoji_cat_count() + kao_cat_count()) * 16;
     let ids = DATA[base..base + 2 * emoji_count() as usize].as_chunks::<2>().0;
     let id = |b: &[u8; 2]| u16::from_le_bytes(*b) as u32;
+    // Most kaomoji chars start no emoji: one search rules them out before trying every length.
+    let c = &s[..s.chars().next()?.len_utf8()];
+    let k = ids.partition_point(|b| text(id(b)) < c);
+    if !ids.get(k).is_some_and(|b| text(id(b)).starts_with(c)) {
+        return None;
+    }
     (1..=s.len().min(64)).rev().filter(|&e| s.is_char_boundary(e)).find_map(|e| {
         let k = ids.binary_search_by(|b| text(id(b)).cmp(&s[..e])).ok()?;
         Some((id(&ids[k]), e))
@@ -119,25 +125,24 @@ pub fn search(query: &str) -> Vec<u32> {
         return Vec::new();
     }
     let wants_skin = q.contains("skin") || q.contains("tone");
-    // Score per keyword: 0 = no match, 1 = substring, 2 = a word starts with the query word,
-    // 3 = keyword starts with the first query word.
+    // Score per keyword, from its weakest query word: 0 = no match, 1 = substring, 2 = a word
+    // starts with it; raised to 3 when the keyword also starts with the first query word.
     let scores: Vec<u8> = (0..kw_count())
         .map(|k| {
             let kw = kw_str(k);
-            let mut best = 3u8;
-            for w in &words {
-                let s = if kw.starts_with(w) {
-                    3
-                } else if kw.split(|c: char| !c.is_alphanumeric()).any(|p| p.starts_with(w)) {
+            let word = |w: &&str| {
+                if kw.split(|c: char| !c.is_alphanumeric()).any(|p| p.starts_with(w)) {
                     2
-                } else if kw.contains(w) {
-                    1
                 } else {
-                    return 0;
-                };
-                best = best.min(s);
+                    kw.contains(w) as u8
+                }
+            };
+            let s = words.iter().map(word).min().unwrap_or(0);
+            if s == 2 && kw.starts_with(words[0]) {
+                3
+            } else {
+                s
             }
-            best
         })
         .collect();
     let mut hits: Vec<(u8, u32)> = (0..item_count())
@@ -170,6 +175,8 @@ mod tests {
         assert!(r.contains(&"😢"), "{:?}", &r[..10.min(r.len())]);
         assert!(r.contains(&"(╥﹏╥)"));
         assert!(r.iter().position(|t| *t == "😢") < r.iter().position(|t| *t == "(╥﹏╥)"));
+        // A keyword that starts with the first word ranks above ones that only contain both.
+        assert_eq!(search("red heart").first().map(|&i| text(i)), Some("❤️"));
     }
 
     #[test]

@@ -35,6 +35,7 @@ A ultra-lightweight background Emoji & Kaomoji picker for Wayland, built in pure
 <p align="left">
   <img src="docs/ramusage_comparison.png" alt="Comparison" width="600">
 </p>
+KDE's Emojier is using 139MBs of RAM, that's like 3-4$ of DDR5 RAM (⊙_☉)
 The usage mentioned was for Pss
 
 ### Over 55k Kaomojis
@@ -47,18 +48,18 @@ Yes, you heard that right, so many expressions (◍•ᴗ•◍)♡
 
 ### Debian, Kubuntu, KDE neon, Mint (.deb)
 ```bash
-sudo apt install ./srvera-emoji_0.18.0-1_amd64.deb
+sudo apt install ./srvera-emoji_0.19.0-1_amd64.deb
 ```
 
 ### Fedora KDE (.rpm)
 ```bash
-sudo dnf install ./srvera-emoji-0.18.0-1.x86_64.rpm
+sudo dnf install ./srvera-emoji-0.19.0-1.x86_64.rpm
 ```
 
 ### Any other distro (.tar.gz)
 ```bash
-tar xzf srvera-emoji-0.18.0-x86_64.tar.gz
-cd srvera-emoji-0.18.0-x86_64
+tar xzf srvera-emoji-0.19.0-x86_64.tar.gz
+cd srvera-emoji-0.19.0-x86_64
 ./install.sh
 ```
 It installs to your home folder and only asks for sudo once, to let the picker type the paste key.
@@ -130,6 +131,8 @@ hand, and everything it needs is compiled into the binary.
 - The window is a Wayland layer-shell overlay, so it stays above fullscreen apps. It opens
   without keyboard focus so the app you're typing in keeps it. Clicking the search box takes
   the keyboard; picking something gives it back.
+- It opens right next to the mouse pointer. Wayland doesn't tell apps where the pointer is, so
+  the window first covers the screen invisibly for a moment and opens where the pointer enters it.
 - KWin can't move layer surfaces, so dragging the title bar changes the window's margins instead.
 
 ### Drawing by hand 
