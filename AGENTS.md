@@ -108,7 +108,10 @@ Run from `main/`:
   `cargo build --release && install -m755 target/release/srvera-emoji ~/.local/bin/ && srvera-emoji --quit`
   (then start it again: `srvera-emoji &`, or log out and in for autostart).
 - Release packages (needs zig, cargo-zigbuild, cargo-deb, cargo-generate-rpm): build for glibc 2.31 with
-  `cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.31`, then
+  `RUSTFLAGS="-C link-arg=-Wl,--allow-shlib-undefined" cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.31`
+  (the flag is needed when the host's libxkbcommon was built against a newer glibc, as on Arch: it
+  references `stat64@GLIBC_2.33` etc., which the 2.31 stubs lack; at run time the user's own
+  libxkbcommon is loaded, so this is safe), then
   `cargo deb --no-build --no-strip --target x86_64-unknown-linux-gnu -o ../binaries/` and
   `cargo generate-rpm --target x86_64-unknown-linux-gnu -o ../binaries/` (config in Cargo.toml). The tarball is
   that binary + `packaging/` files + `assets/icon.svg` (as `srvera-emoji.svg`) + both licenses, in
