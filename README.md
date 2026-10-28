@@ -2,7 +2,7 @@
   <img src="main/assets/headericon.svg" alt="Icon" width="900">
 </p>
 
-# SrveraEmojis - Emoji/Kaomoji selector for Wayland (｀・ω・´)
+# A ultra-lightweight Emoji/Kaomoji picker for Wayland
 
 A ultra-lightweight background Emoji & Kaomoji picker for Wayland, built in pure Rust ( ˶ˆ꒳ˆ˵ ).
 <p align="left">
@@ -40,6 +40,7 @@ The usage mentioned was for Pss
 
 ### Over 55k Kaomojis
 Yes, you heard that right, so many expressions (◍•ᴗ•◍)♡
+Sourced from the wonderful people of kaomojis.jp
 <p align="left">
   <img src="docs/55kaomojis.gif" alt="Showcase" width="600">
 </p>

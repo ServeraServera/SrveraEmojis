@@ -2,6 +2,7 @@
 
 
 ## [0.19] - 2026-10-28
+Commit: `9251125`
 
 ### Fixed
 - The search box caret now only shows while the search box has the keyboard, and blinks
