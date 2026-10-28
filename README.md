@@ -4,7 +4,9 @@
 
 # A ultra-lightweight Emoji/Kaomoji picker for Wayland
 
-A ultra-lightweight background Emoji & Kaomoji picker for Wayland, built in pure Rust ( ˶ˆ꒳ˆ˵ ).
+A background Emoji & Kaomoji picker for Wayland built on tiny-skia with no GTK or Qt 
+toolkits to stay as light as possible ( ˘ω˘ ), built in pure Rust ( ˶ˆ꒳ˆ˵ ).
+
 <p align="left">
   <img src="docs/header.gif" alt="Demo" width="600">
 </p>
@@ -25,9 +27,11 @@ A ultra-lightweight background Emoji & Kaomoji picker for Wayland, built in pure
 ### Instantaneous at any time
 - Do you still use HDDs in the big 2026? Tired of KDE-Emojier taking several seconds to launch?
 - Then today's your lucky day (´・∀・｀)!
-- I built Srvera emojis to open up in an instant, no matter if you were using a RAM heavy program beforehand or if your disk usage was overloaded (*≧▽≦)
+- I built Srvera emojis to open up in an instant on an HDD, no matter if you were using a RAM heavy program beforehand or if your disk usage was overloaded (*≧▽≦)
 
  https://github.com/user-attachments/assets/ddc6d579-e0f9-403f-b3eb-562c7f127acb
+
+*Tested and recorded from a Seagate Barracuda ST2000DM006 7200RPM, 64MB of cache on a CachyOS install*
 
 ### RAM usage (≧◡≦)
 - With the RAM prices of today, I consider that having a emoji picker gobble up 50-150MBs of RAM is ***preposterous***
@@ -35,8 +39,9 @@ A ultra-lightweight background Emoji & Kaomoji picker for Wayland, built in pure
 <p align="left">
   <img src="docs/ramusage_comparison.png" alt="Comparison" width="600">
 </p>
+
 KDE's Emojier is using 139MBs of RAM, that's like 3-4$ of DDR5 RAM (⊙_☉)
-The usage mentioned was for Pss
+*The usage mentioned was for Pss*
 
 ### Over 55k Kaomojis
 Yes, you heard that right, so many expressions (◍•ᴗ•◍)♡
@@ -78,7 +83,7 @@ Coming soon until new account sign ups are enabled (｡•́︿•̀｡)
   `bindsym $mod+period exec srvera-emoji --toggle`.
 
 ## Building from source
-1. Clone from source:
+1. Clone the repo:
    ```bash
    git clone https://github.com/ServeraServera/SrveraEmojis.git
    ```
