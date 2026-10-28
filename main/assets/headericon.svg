@@ -3,7 +3,7 @@
 <svg width="100%" height="100%" viewBox="0 0 1963 1060" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:affinity="https://www.affinity.studio/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
     <g>
         <g transform="matrix(1,0,0,1,12.002355,-4.924851)">
-            <path d="M1796.938,21.091C1875.342,21.091 1938.995,84.745 1938.995,163.148L1938.995,893.728C1938.995,972.131 1875.342,1035.785 1796.938,1035.785L142.057,1035.785C63.654,1035.785 0,972.131 0,893.728L0,163.148C0,84.745 63.654,21.091 142.057,21.091L1796.938,21.091Z" style="fill:white;fill-opacity:0.39;"/>
+            <path d="M1796.938,21.091C1875.342,21.091 1938.995,84.745 1938.995,163.148L1938.995,893.728C1938.995,972.131 1875.342,1035.785 1796.938,1035.785L142.057,1035.785C63.654,1035.785 0,972.131 0,893.728L0,163.148C0,84.745 63.654,21.091 142.057,21.091L1796.938,21.091Z" style="fill:rgb(205,228,255);"/>
         </g>
         <use xlink:href="#_Image1" x="36.164" y="18.274" width="874px" height="886px"/>
         <use xlink:href="#_Image2" x="931.733" y="271.568" width="970px" height="125px"/>
