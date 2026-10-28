@@ -25,9 +25,8 @@ A ultra-lightweight background Emoji & Kaomoji picker for Wayland, built in pure
 - Do you still use HDDs in the big 2026? Tired of KDE-Emojier taking several seconds to launch?
 - Then today's your lucky day (´・∀・｀)!
 - I built Srvera emojis to open up in an instant, no matter if you were using a RAM heavy program beforehand or if your disk usage was overloaded (*≧▽≦)
-<p align="left">
-  <img src="docs/instant-open.mp4" alt="Placeholder" width="600">
-</p>
+
+ https://github.com/user-attachments/assets/ddc6d579-e0f9-403f-b3eb-562c7f127acb
 
 ### RAM usage (≧◡≦)
 - With the RAM prices of today, I consider that having a emoji picker gobble up 50-150MBs of RAM is ***preposterous***
