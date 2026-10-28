@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="main/assets/headericon.svg" alt="Icon" width="300">
+  <img src="main/assets/headericon.svg" alt="Icon" width="900">
 </p>
 
 # SrveraEmojis - Emoji/Kaomoji selector for Wayland (｀・ω・´)
