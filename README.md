@@ -146,7 +146,7 @@ hand, and everything it needs is compiled into the binary.
   nothing to call. This avoids the possibility of malware utilizing the picker as a proxy
 
 ### Data built in at compile time
-- `build.rs` reads `emoji-test.txt` (Unicode's emoji list), `kaomojis-msime.txt` and the
+- `build.rs` reads `emoji-test.txt` (Unicode's emoji list), `kaomojis.txt` and the
   Twemoji SVGs, and packs them into three compact tables embedded in the binary.
 - Each emoji and kaomoji belongs to exactly one tab, decided at build time: emojis by their
   Unicode group, kaomojis by the first word of their keyword. Opening a tab simply shows its

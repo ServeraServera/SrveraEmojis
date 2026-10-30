@@ -19,7 +19,7 @@ Every contribution is measured against that.
 No Rust needed for these:
 - **Test on another desktop:** Sway, Hyprland, Niri, Labwc, COSMIC, whatever you use.
   Tell us whether the picker opens and whether pasting works.
-- **Fix or add a kaomoji:** edit `main/kaomojis-msime.txt`. Each line is
+- **Fix or add a kaomoji:** edit `main/kaomojis.txt`. Each line is
   `keyword<TAB>kaomoji`, and the first word of the keyword decides its tab
   (`crying sobbing	(╥﹏╥)` goes to Crying). Unknown first words go to "Other".
 - **Add Emoji keywords:** emojis live in `main/emoji-test.txt`, one per line:
