@@ -11,12 +11,11 @@ Every contribution is measured against that.
 - **Memory budget:** <15 MB with the popup open, a few MB idle (measured as Pss). Please
   include before/after numbers for any change that touches drawing, fonts or data.
 - **No GUI toolkit.** Everything is drawn by hand with tiny-skia, and that stays that way.
-  I don't want some GUI toolkit 
+  *I don't want some RAM hungry GUI toolkit consuming 10 to 50 srvera emojis*
 - **No new crates** without a clear reason. Versions are pinned to known APIs (SCTK 0.19,
   resvg 0.45, rustybuzz 0.20, fontdb 0.23), so please don't bump them as part of another change.
 
 ## Easy ways to help (◕ᴗ◕)
-You don't need to know to code to contribute
 No Rust needed for these:
 - **Test on another desktop:** Sway, Hyprland, Niri, Labwc, COSMIC, whatever you use.
   Tell us whether the picker opens and whether pasting works.
@@ -81,6 +80,10 @@ awk '/^Rss|^Pss:/' /proc/$(pgrep -x srvera-emoji)/smaps_rollup
   grow past 400 MB (ﾟﾛﾟ), crazy right?.
 - Free everything the popup needs when it closes (`Ui::release`).
 
+## Language Support
+Even though I'm Spanish, I 
+- If you want to add language support for the
+
 ## Pull requests
 - One topic per pull request, keep it small.
 - Describe what changed and why. Include memory numbers if relevant *(measure it with the terminal)*, and a screenshot for
@@ -105,7 +108,8 @@ awk '/^Rss|^Pss:/' /proc/$(pgrep -x srvera-emoji)/smaps_rollup
   tens of thousands of Kaomojis available, but for any normal person, I don't really consider it an issue per se as the memory is freed once the popup is closed
 
 ## Notes
-Thank you for reading it all through! As stated before, any feedback is appreciated! For now, I don't plan to develop a GNOME implementation any time soon
+Thank you for reading it all through! As stated before, any feedback is appreciated! For now, I just wanted to state that 
+don't plan to develop a GNOME implementation any time soon, cheers!
 
 ## License
 By contributing, you agree that your contributions are licensed under the
