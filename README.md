@@ -169,14 +169,15 @@ hand, and everything it needs is compiled into the binary.
    focused app, terminals included.
 4. Half a second later, your previous clipboard text is put back.
 
-### No udev rules of its own
+### One udev rule, and only for the paste key
 - Srvera Emoji never talks to udev and doesn't install any rules. It only opens
   `/dev/uinput` and creates one virtual keyboard named *srvera-emoji virtual keyboard*.
 - That keyboard knows exactly four keys (Ctrl, Shift, V, Insert) and only ever presses
   Shift + Insert or Ctrl + V. It can't read your real keyboard.
-- Access to `/dev/uinput` comes from the standard `uaccess` rule, which gives it to the user
-  sitting at the desktop. Steam and KDE Connect already ship this rule, so most KDE systems
-  have it. If yours doesn't, see [Building from source](#building-from-source).
+- The packages (`.deb`, `.rpm`) and `install.sh` add one udev rule,
+  `60-srvera-uinput.rules`, which lets the user sitting at the desktop write to
+  `/dev/uinput` (the standard `uaccess` tag). It's the same rule Steam and KDE Connect ship,
+  so if you have either, you already have this access.
 
 ### Drawing by hand 
 - The UI is drawn with *tiny-skia* into a shared-memory buffer: rounded rectangles, text and
