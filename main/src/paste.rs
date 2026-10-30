@@ -61,6 +61,11 @@ impl Clipboard {
         true
     }
 
+    /// True while both the clipboard and the primary selection still hold our pick.
+    pub fn still_ours(&self) -> bool {
+        self.cur_src.iter().all(Option::is_some)
+    }
+
     /// After the paste: put the previous texts back (or empty them). Each one is
     /// skipped if something else took it meanwhile, so that copy isn't overwritten.
     pub fn restore(&mut self, qh: &Qh) {

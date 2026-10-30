@@ -1,6 +1,15 @@
 # Changelog
 
 
+## [0.20] - 2026-10-30
+Commit: `AAAAAAAAAA`
+
+### Fixed
+- The paste key is no longer pressed if another program replaced the clipboard or the
+  primary selection between the pick and the paste (70 ms). Before, that program's text
+  could be pasted instead, e.g. a command into a terminal.
+- Simplified the icon to avoid rendering issues making it look weird on smaller sizes
+
 ## [0.19] - 2026-10-28
 Commit: `9251125`
 

@@ -402,7 +402,8 @@ impl App {
             if app.pick_id != id {
                 return TimeoutAction::Drop;
             }
-            if let Some(k) = &app.vkbd {
+            // Another program replaced the clipboard meanwhile: don't paste its text.
+            if let (Some(k), true) = (&app.vkbd, app.clipboard.still_ours()) {
                 k.paste(app.paste_key);
             }
             // Once the app has read the emoji, put the old clipboard back.
