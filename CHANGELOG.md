@@ -2,7 +2,7 @@
 
 
 ## [0.20] - 2026-10-30
-Commit: `AAAAAAAAAA`
+Commit: `380a1f6`
 
 ### Fixed
 - The paste key is no longer pressed if another program replaced the clipboard or the
