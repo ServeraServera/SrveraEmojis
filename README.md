@@ -58,18 +58,18 @@ Sourced from the wonderful people of kaomojis.jp
 
 ### Debian, Kubuntu, KDE neon, Mint (.deb)
 ```bash
-sudo apt install ./srvera-emoji_0.19.0-1_amd64.deb
+sudo apt install ./srvera-emoji_0.20.0-1_amd64.deb
 ```
 
 ### Fedora KDE (.rpm)
 ```bash
-sudo dnf install ./srvera-emoji-0.19.0-1.x86_64.rpm
+sudo dnf install ./srvera-emoji-0.20.0-1.x86_64.rpm
 ```
 
 ### Any other distro (.tar.gz)
 ```bash
-tar xzf srvera-emoji-0.19.0-x86_64.tar.gz
-cd srvera-emoji-0.19.0-x86_64
+tar xzf srvera-emoji-0.20.0-x86_64.tar.gz
+cd srvera-emoji-0.20.0-x86_64
 ./install.sh
 ```
 It installs to your home folder and only asks for sudo once, to let the picker type the paste key.
