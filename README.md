@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="main/assets/headericon.svg" alt="Icon" width="900">
+  <img src="main/assets/headericon.svg" alt="Header" width="900">
 </p>
 
 # A ultra-lightweight Emoji/Kaomoji picker for Wayland
 
-A background Emoji & Kaomoji picker for Wayland built on tiny-skia with no GTK or Qt 
-toolkits to stay as light as possible ( ˘ω˘ ), built in pure Rust ( ˶ˆ꒳ˆ˵ ).
+A Emoji & Kaomoji picker for Wayland built on tiny-skia with no GTK or Qt 
+toolkits to stay **as light as possible** ( ˘ω˘ ), built in pure Rust ( ˶ˆ꒳ˆ˵ ).
 
 <p align="left">
   <img src="docs/header.gif" alt="Demo" width="600">
@@ -15,7 +15,7 @@ toolkits to stay as light as possible ( ˘ω˘ ), built in pure Rust ( ˶ˆ꒳ˆ
 - Built and tested on KDE Plasma 6. **DOES NOT WORK ON GNOME**
 
 ## Features
-### No manual copy-pasting Σ(･ω･ﾉ)ﾉ
+### No manual copy-pasting Σ(･ω･ﾉ)
 - Click an Emoji or Kaomoji and it's pasted straight into the app you were typing in
 - Whatever text you had copied is put back right after, so your clipboard stays intact, *splendid*
 - Picked Emojis & Kaomojis don't clutter *Klipper's* clipboard history either
@@ -28,6 +28,7 @@ toolkits to stay as light as possible ( ˘ω˘ ), built in pure Rust ( ˶ˆ꒳ˆ
 - Do you still use HDDs in the big 2026? Tired of KDE-Emojier taking several seconds to launch?
 - Then today's your lucky day (´・∀・｀)!
 - I built Srvera emojis to open up in an instant on an HDD, no matter if you were using a RAM heavy program beforehand or if your disk usage was overloaded (*≧▽≦)
+  *cough cough, SWAP MEMORY*
 
  https://github.com/user-attachments/assets/ddc6d579-e0f9-403f-b3eb-562c7f127acb
 
@@ -42,6 +43,9 @@ toolkits to stay as light as possible ( ˘ω˘ ), built in pure Rust ( ˶ˆ꒳ˆ
 
 KDE's Emojier is using 139MBs of RAM, that's like 3-4$ of DDR5 RAM (⊙_☉)
 *The usage mentioned was for Pss*
+
+### Your favorites tab
+Hover your mouse over a Emoji or Kaomoji and then right click it to add it to the favorites tab (⌒▽⌒)
 
 ### Over 55k Kaomojis
 Yes, you heard that right, so many expressions (◍•ᴗ•◍)♡
@@ -117,13 +121,29 @@ Srvera Emoji is a single Rust binary with no GUI toolkit. Everything it shows is
 hand, and everything it needs is compiled into the binary.
 
 ### A background daemon (｡•̀ᴗ-)✧
+- Why a background process and not on demand? I still run an HDD for my OS and I wanted the picker
+  to feel *snappy* so the tradeoff of 3-7MBs of permanent RAM usage is insignificant (I have 16GBs)
+  compared to the benefit of having an instantaneous open even when I am using a lot of swap memory
 - `srvera-emoji` starts hidden at login and waits. Opening the picker never starts a new
   process: (Super + .) is registered with KDE's shortcut service (kglobalaccel) over D-Bus,
   and each press arrives as a signal to the running daemon (~25 ms to open, even after
   long idle).
-- The D-Bus client is ~340 lines written for this purpose instead of a full D-Bus crate.
+
+### The D-Bus client
+- The shortcut is handled by a tiny D-Bus client (~340 lines in `shortcut.rs`) instead of a
+  full D-Bus crate. It speaks just enough of the protocol to log in to the session bus, make
+  three calls and read two kinds of signals.
 - `srvera-emoji --toggle`, `--show` and `--quit` talk to the daemon through a Unix socket
   in `$XDG_RUNTIME_DIR`. This is how other desktops and scripts open it.
+- At startup it registers the action **Srvera Emoji -> Show or hide the picker** with kglobalaccel,
+  using Super + . as its default. If you change the key in System Settings -> Shortcuts, your choice is kept.
+- Each key press arrives as a `globalShortcutPressed` signal on the already-open bus
+  connection, so nothing is started from disk as stated before.
+- If KWin restarts, the daemon notices kglobalaccel coming back and registers again.
+- If another action already holds the same key, the daemon names it in its log so you know
+  what to change.
+- It is only a client: it owns no D-Bus name and offers no methods, so other programs have
+  nothing to call. This avoids the possibility of malware utilizing the picker as a proxy
 
 ### Data built in at compile time
 - `build.rs` reads `emoji-test.txt` (Unicode's emoji list), `kaomojis-msime.txt` and the
@@ -141,6 +161,23 @@ hand, and everything it needs is compiled into the binary.
   the window first covers the screen invisibly for a moment and opens where the pointer enters it.
 - KWin can't move layer surfaces, so dragging the title bar changes the window's margins instead.
 
+### Pasting without touching your clipboard
+1. The text currently on your clipboard is read and kept aside.
+2. The pick is offered as the clipboard (via `ext-data-control`), marked with
+   `x-kde-passwordManagerHint: secret` so Klipper doesn't record it. *(The popup "The clipboard currently holds a sensitive piece of data that will not be stored in the history." might appear)*
+3. Shift + Insert is sent through a virtual keyboard (`/dev/uinput`), which pastes into the
+   focused app, terminals included.
+4. Half a second later, your previous clipboard text is put back.
+
+### No udev rules of its own
+- Srvera Emoji never talks to udev and doesn't install any rules. It only opens
+  `/dev/uinput` and creates one virtual keyboard named *srvera-emoji virtual keyboard*.
+- That keyboard knows exactly four keys (Ctrl, Shift, V, Insert) and only ever presses
+  Shift + Insert or Ctrl + V. It can't read your real keyboard.
+- Access to `/dev/uinput` comes from the standard `uaccess` rule, which gives it to the user
+  sitting at the desktop. Steam and KDE Connect already ship this rule, so most KDE systems
+  have it. If yours doesn't, see [Building from source](#building-from-source).
+
 ### Drawing by hand 
 - The UI is drawn with *tiny-skia* into a shared-memory buffer: rounded rectangles, text and
   images. Only visible rows are drawn, and a new frame is drawn only when the compositor
@@ -151,14 +188,6 @@ hand, and everything it needs is compiled into the binary.
   startup the daemon finds the right installed font for every character used by the 55k
   kaomojis, in one pass, so scrolling never searches through fonts.
 - HiDPI and fractional scaling are supported (`wp_fractional_scale` + `wp_viewporter`).
-
-### Pasting without touching your clipboard
-1. The text currently on your clipboard is read and kept aside.
-2. The pick is offered as the clipboard (via `ext-data-control`), marked with
-   `x-kde-passwordManagerHint: secret` so Klipper doesn't record it. *(The popup "The clipboard currently holds a sensitive piece of data that will not be stored in the history." might appear)*
-3. Shift + Insert is sent through a virtual keyboard (`/dev/uinput`), which pastes into the
-   focused app, terminals included.
-4. Half a second later, your previous clipboard text is put back.
 
 ### Staying light 
 - Fonts are memory-mapped, not loaded, and everything only needed while the window is open
@@ -178,4 +207,14 @@ hand, and everything it needs is compiled into the binary.
 | `main/src/paste.rs` | Clipboard handling and the virtual keyboard |
 | `main/src/shortcut.rs` | Super+. through KDE's kglobalaccel (minimal D-Bus client) |
 
-Don't mind me ( ͡° ͜ʖ ͡°)
+## AI Disclosure
+### How it was used
+The architecture was made by me then all of the code was generated by an LLM and 
+reviewed by me before committing any changes. 
+
+### Some personal background
+- I recently switched to Linux for good instead of keeping a small dualboot partition for stuff
+  that Windows couldn't do and I really did miss Window's Kaomoji tab on their picker.
+- I didn't have much time to spare and I really didn't feel like coding it by hand.
+  I do not take credit for the code, It's the LLMs work, but for something I was going to use everyday,
+  I had to do the bare minimum of at least taking my time to review the code and not make it sloppy
