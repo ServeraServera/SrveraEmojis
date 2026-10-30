@@ -1,4 +1,4 @@
-# SrveraEmojis — AGENTS.md
+# SrveraEmojis - AGENTS.md
 
 ## Goal
 An ultra-lightweight emoji & kaomoji picker for Wayland (built and tested on KDE Plasma 6).
@@ -41,28 +41,28 @@ Targets: ≤15 MB RAM with the window open (currently ~11 MB, ~8 MB idle), a few
   dividers. Doc comments (`///`, `//!`) on every module and on non-obvious functions.
 
 ## Layout
-- `kaomojis-msime.orig.txt` — untouched original (MS IME dictionary format); kept locally, not in git.
-- `main/` — the Rust crate (binary `srvera-emoji`):
-  - `rustfmt.toml` — formatting rules (see Formatting).
-  - `emoji-test.txt` — Unicode emoji list (source of emojis, groups, names).
-  - `kaomojis-msime.txt` — kaomojis as `keyword<TAB>kaomoji`; the keyword's first word is its tab.
-  - `build.rs` — parses both .txt files + `assets/twemoji/*.svg` into compact blobs embedded in the binary.
-  - `src/main.rs` — CLI and single-instance daemon via `$XDG_RUNTIME_DIR/srvera-emoji.sock`.
-  - `src/app.rs` — Wayland side: layer-shell popup, shm buffers, input, scaling, focus, placing at the
+- `kaomojis-msime.orig.txt`  untouched original (MS IME dictionary format); kept locally, not in git.
+- `main/`  the Rust crate (binary `srvera-emoji`):
+  - `rustfmt.toml`  formatting rules (see Formatting).
+  - `emoji-test.txt`  Unicode emoji list (source of emojis, groups, names).
+  - `kaomojis-msime.txt`  kaomojis as `keyword<TAB>kaomoji`; the keyword's first word is its tab.
+  - `build.rs`  parses both .txt files + `assets/twemoji/*.svg` into compact blobs embedded in the binary.
+  - `src/main.rs`  CLI and single-instance daemon via `$XDG_RUNTIME_DIR/srvera-emoji.sock`.
+  - `src/app.rs`  Wayland side: layer-shell popup, shm buffers, input, scaling, focus, placing at the
     pointer, moving, caret blink, event loop.
-  - `src/ui.rs` — state, layout, drawing, hit-testing, favorites/recent lists. Knows nothing about Wayland.
-  - `src/data.rs` — read-only access to the embedded tables + keyword search.
-  - `src/text.rs` — kaomoji/UI text: fontdb fallback, rustybuzz shaping, glyph outlines → tiny-skia;
+  - `src/ui.rs`  state, layout, drawing, hit-testing, favorites/recent lists. Knows nothing about Wayland.
+  - `src/data.rs`  read-only access to the embedded tables + keyword search.
+  - `src/text.rs`  kaomoji/UI text: fontdb fallback, rustybuzz shaping, glyph outlines → tiny-skia;
     emojis inside text are drawn with the Twemoji SVGs.
-  - `src/emoji_img.rs` — inflate an emoji's SVG, render with resvg, small cache.
-  - `src/paste.rs` — clipboard (ext-data-control) + virtual keyboard (uinput).
-  - `src/shortcut.rs` — Super+. through KDE's kglobalaccel: a minimal D-Bus client (no crate).
-  - `assets/twemoji/` — Twemoji 17 SVGs (from jdecked/twemoji).
-  - `assets/icon.svg` — app icon, installed as `~/.local/share/icons/hicolor/scalable/apps/srvera-emoji.svg`
+  - `src/emoji_img.rs`  inflate an emoji's SVG, render with resvg, small cache.
+  - `src/paste.rs`  clipboard (ext-data-control) + virtual keyboard (uinput).
+  - `src/shortcut.rs`  Super+. through KDE's kglobalaccel: a minimal D-Bus client (no crate).
+  - `assets/twemoji/`  Twemoji 17 SVGs (from jdecked/twemoji).
+  - `assets/icon.svg` - app icon, installed as `~/.local/share/icons/hicolor/scalable/apps/srvera-emoji.svg`
     (used by the .desktop entries).
-  - `packaging/` — release files: uinput udev rule, menu + autostart .desktop entries, `postinst`
+  - `packaging/` - release files: uinput udev rule, menu + autostart .desktop entries, `postinst`
     (deb/rpm: applies the udev rule), `install.sh`/`uninstall.sh` (tarball, per-user).
-- `binaries/` — built release packages (.deb, .rpm, `tarfile/*.tar.gz`).
+- `binaries/` - built release packages (.deb, .rpm, `tarfile/*.tar.gz`).
 
 ## How it works
 1. **Build time:** `build.rs` assigns every item to exactly one tab and stores items grouped
